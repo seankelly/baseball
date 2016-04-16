@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Sean Kelly <code@katron.org>"]
 
 [dependencies]
+csv = "0.14.4"
