@@ -27,7 +27,7 @@ struct RetrosheetGameLog {
     protest_info: String,
     park_id: String,
     attendance: Option<u32>,
-    time_of_game: String,
+    time_of_game: Option<u16>,
     // 20
     visitor_line_score: String,
     home_line_score: String,
