@@ -267,5 +267,6 @@ fn main() {
         let num_games = games.len();
 
         println!("{} has {} games", file, num_games);
+        let team_seasons = order_season(games);
     }
 }
