@@ -2,6 +2,7 @@ extern crate csv;
 extern crate rustc_serialize;
 
 use std::env;
+use std::collections::BTreeMap;
 
 use csv::Reader;
 
@@ -187,12 +188,39 @@ struct RetrosheetGameLog {
     acquistion_info: String,
 }
 
+struct Streak {
+    team_id: String,
+    year: String,
+    start: String,
+    end: String,
+    streak_type: StreakType,
+    length: u8,
+    final_wins: u8,
+    final_losses: u8,
+    made_postseason: bool,
+}
+
+enum StreakType {
+    Winning,
+    Losing,
+}
+
 fn season_games(file: &str) -> Vec<RetrosheetGameLog> {
     let mut csv_reader = Reader::from_file(file)
                             .expect("Couldn't open file.")
                             .has_headers(false);
     let games = csv_reader.decode().collect::<csv::Result<Vec<RetrosheetGameLog>>>().unwrap();
     return games;
+}
+
+fn order_season(games: Vec<RetrosheetGameLog>) -> BTreeMap<String, Vec<RetrosheetGameLog>> {
+    let season = BTreeMap::new();
+    return season;
+}
+
+fn process_season_streaks(season: BTreeMap<String, Vec<RetrosheetGameLog>>) -> Vec<Streak> {
+    let streaks = Vec::new();
+    return streaks;
 }
 
 fn main() {
