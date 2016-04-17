@@ -4,6 +4,7 @@ extern crate rustc_serialize;
 use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
+use std::cmp::Ordering;
 
 use csv::Reader;
 
@@ -229,6 +230,27 @@ fn order_season(games: Vec<RetrosheetGameLog>) -> BTreeMap<String, Vec<Retroshee
             let mut team = season.entry(game.visitor_team).or_insert(Vec::new());
             team.push(visitor_team);
         }
+    }
+
+    // Now that every team has every game it played, they need to be sorted. This is complicated
+    // because the ordering is in one of two variables.
+    for (team_id, team_season) in season.iter_mut() {
+        team_season.sort_by(|a, b| {
+            let a_game = if *team_id == a.home_team {
+                a.home_team_game_number
+            }
+            else {
+                a.visitor_team_game_number
+            };
+            let b_game = if *team_id == b.home_team {
+                b.home_team_game_number
+            }
+            else {
+                b.visitor_team_game_number
+            };
+
+            a_game.cmp(&b_game)
+        });
     }
 
     return season;
