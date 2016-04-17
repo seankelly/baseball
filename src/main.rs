@@ -1,5 +1,7 @@
 extern crate csv;
 
+use std::env;
+
 use csv::Reader;
 
 struct RetrosheetGameLog {
@@ -184,5 +186,7 @@ struct RetrosheetGameLog {
 }
 
 fn main() {
-    println!("Hello, world!");
+    for file in env::args().skip(1) {
+        println!("file: {}", file);
+    }
 }
