@@ -13,10 +13,10 @@ struct RetrosheetGameLog {
     day_of_week: String,
     visitor_team: String,
     visitor_league: String,
-    visitor_team_game_number: String,
+    visitor_team_game_number: u16,
     home_team: String,
     home_league: String,
-    home_team_game_number: String,
+    home_team_game_number: u16,
     // 10
     visitor_score: String,
     home_score: String,
