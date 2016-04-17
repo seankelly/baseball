@@ -187,12 +187,17 @@ struct RetrosheetGameLog {
     acquistion_info: String,
 }
 
-fn main() {
-    for file in env::args().skip(1) {
-        let mut csv_file = Reader::from_file(&file)
+fn season_games(file: &str) -> Vec<RetrosheetGameLog> {
+    let mut csv_reader = Reader::from_file(file)
                             .expect("Couldn't open file.")
                             .has_headers(false);
-        let games = csv_file.decode().collect::<csv::Result<Vec<RetrosheetGameLog>>>().unwrap();
+    let games = csv_reader.decode().collect::<csv::Result<Vec<RetrosheetGameLog>>>().unwrap();
+    return games;
+}
+
+fn main() {
+    for file in env::args().skip(1) {
+        let games = season_games(&file);
         let num_games = games.len();
 
         println!("{} has {} games", file, num_games);
