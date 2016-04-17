@@ -1,3 +1,7 @@
+extern crate csv;
+
+use csv::Reader;
+
 struct RetrosheetGameLog {
     // 1
     date: String,
