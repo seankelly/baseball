@@ -192,10 +192,8 @@ fn main() {
         let mut csv_file = Reader::from_file(&file)
                             .expect("Couldn't open file.")
                             .has_headers(false);
-        let mut num_games = 0;
-        for game in csv_file.records() {
-            num_games += 1;
-        }
+        let games = csv_file.decode().collect::<csv::Result<Vec<RetrosheetGameLog>>>().unwrap();
+        let num_games = games.len();
 
         println!("{} has {} games", file, num_games);
     }
