@@ -187,6 +187,14 @@ struct RetrosheetGameLog {
 
 fn main() {
     for file in env::args().skip(1) {
-        println!("file: {}", file);
+        let mut csv_file = Reader::from_file(&file)
+                            .expect("Couldn't open file.")
+                            .has_headers(false);
+        let mut num_games = 0;
+        for game in csv_file.records() {
+            num_games += 1;
+        }
+
+        println!("{} has {} games", file, num_games);
     }
 }
