@@ -3,10 +3,11 @@ extern crate rustc_serialize;
 
 use std::env;
 use std::collections::BTreeMap;
+use std::clone::Clone;
 
 use csv::Reader;
 
-#[derive(RustcDecodable)]
+#[derive(Clone, Debug, RustcDecodable)]
 struct RetrosheetGameLog {
     // 1
     date: String,
@@ -214,7 +215,22 @@ fn season_games(file: &str) -> Vec<RetrosheetGameLog> {
 }
 
 fn order_season(games: Vec<RetrosheetGameLog>) -> BTreeMap<String, Vec<RetrosheetGameLog>> {
-    let season = BTreeMap::new();
+    let mut season = BTreeMap::new();
+
+    for game in games {
+        // Check home team first and then the visiting team.
+        let home_game = game.clone();
+        let visitor_team = game.clone();
+        {
+            let mut team = season.entry(game.home_team).or_insert(Vec::new());
+            team.push(home_game);
+        }
+        {
+            let mut team = season.entry(game.visitor_team).or_insert(Vec::new());
+            team.push(visitor_team);
+        }
+    }
+
     return season;
 }
 
