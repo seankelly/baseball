@@ -18,8 +18,8 @@ struct RetrosheetGameLog {
     home_league: String,
     home_team_game_number: u16,
     // 10
-    visitor_score: String,
-    home_score: String,
+    visitor_score: u16,
+    home_score: u16,
     number_of_outs: String,
     day_night: String,
     completion_info: String,
