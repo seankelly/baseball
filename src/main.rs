@@ -20,13 +20,13 @@ struct RetrosheetGameLog {
     // 10
     visitor_score: u16,
     home_score: u16,
-    number_of_outs: String,
+    number_of_outs: Option<u8>,
     day_night: String,
     completion_info: String,
     forfeit_info: String,
     protest_info: String,
     park_id: String,
-    attendance: String,
+    attendance: Option<u32>,
     time_of_game: String,
     // 20
     visitor_line_score: String,
