@@ -205,6 +205,47 @@ struct Streak {
 enum StreakType {
     Winning,
     Losing,
+    Ties,
+}
+
+impl Streak {
+    fn from_game(game: &RetrosheetGameLog, home_team: bool) -> Streak {
+        let team_id = if home_team {
+            game.home_team.clone()
+        }
+        else {
+            game.visitor_team.clone()
+        };
+
+        let (team_score, other_score) = if home_team {
+            (game.home_score, game.visitor_score)
+        }
+        else {
+            (game.visitor_score, game.home_score)
+        };
+
+        let streak_type = if team_score > other_score {
+            StreakType::Winning
+        }
+        else if team_score < other_score {
+            StreakType::Losing
+        }
+        else {
+            StreakType::Ties
+        };
+
+        Streak {
+            team_id: team_id,
+            year: String::from(""),
+            start: game.date.clone(),
+            end: game.date.clone(),
+            streak_type: streak_type,
+            length: 1,
+            final_wins: 1,
+            final_losses: 1,
+            made_postseason: false,
+        }
+    }
 }
 
 fn season_games(file: &str) -> Vec<RetrosheetGameLog> {
