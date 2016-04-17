@@ -1,9 +1,11 @@
 extern crate csv;
+extern crate rustc_serialize;
 
 use std::env;
 
 use csv::Reader;
 
+#[derive(RustcDecodable)]
 struct RetrosheetGameLog {
     // 1
     date: String,
