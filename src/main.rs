@@ -195,6 +195,8 @@ struct Streak {
     year: String,
     start_date: String,
     end_date: String,
+    start_game: u16,
+    end_game: u16,
     streak_type: StreakType,
     length: u8,
     final_wins: u16,
@@ -217,11 +219,11 @@ impl Streak {
             game.visitor_team.clone()
         };
 
-        let (team_score, other_score) = if home_team {
-            (game.home_score, game.visitor_score)
+        let (game_number, team_score, other_score) = if home_team {
+            (game.home_team_game_number, game.home_score, game.visitor_score)
         }
         else {
-            (game.visitor_score, game.home_score)
+            (game.visitor_team_game_number, game.visitor_score, game.home_score)
         };
 
         let streak_type = if team_score > other_score {
@@ -239,6 +241,8 @@ impl Streak {
             year: String::from(""),
             start_date: game.date.clone(),
             end_date: game.date.clone(),
+            start_game: game_number,
+            end_game: game_number,
             streak_type: streak_type,
             length: 1,
             final_wins: 1,
