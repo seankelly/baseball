@@ -31,7 +31,7 @@ enum StreakType {
 }
 
 impl Streak {
-    fn from_game(game: &retrosheet::RetrosheetGameLog, home_team: bool) -> Streak {
+    fn from_game(game: &retrosheet::TeamGameLog, home_team: bool) -> Streak {
         let team_id = if home_team {
             game.home_team.clone()
         }
@@ -80,20 +80,19 @@ fn season_games(file: &str) -> Vec<retrosheet::RetrosheetGameLog> {
     return games;
 }
 
-fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, Vec<retrosheet::RetrosheetGameLog>> {
+fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, Vec<retrosheet::TeamGameLog>> {
     let mut season = BTreeMap::new();
 
     for game in games {
         // Check home team first and then the visiting team.
-        let home_game = game.clone();
-        let visitor_team = game.clone();
+        let (home_game, visitor_game) = game.each_team_game();
         {
             let mut team = season.entry(game.home_team).or_insert(Vec::new());
             team.push(home_game);
         }
         {
             let mut team = season.entry(game.visitor_team).or_insert(Vec::new());
-            team.push(visitor_team);
+            team.push(visitor_game);
         }
     }
 
@@ -121,7 +120,7 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
     return season;
 }
 
-fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::RetrosheetGameLog>>) -> Vec<Streak> {
+fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>) -> Vec<Streak> {
     let streaks = Vec::new();
     return streaks;
 }
