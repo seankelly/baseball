@@ -197,8 +197,8 @@ struct Streak {
     end_date: String,
     streak_type: StreakType,
     length: u8,
-    final_wins: u8,
-    final_losses: u8,
+    final_wins: u16,
+    final_losses: u16,
     made_postseason: bool,
 }
 
