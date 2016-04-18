@@ -87,7 +87,7 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
 
     // Now that every team has every game it played, they need to be sorted. This is complicated
     // because the ordering is in one of two variables.
-    for (team_id, team_season) in season.iter_mut() {
+    for (_team_id, team_season) in season.iter_mut() {
         team_season.sort_by(|a, b| {
             let a_game = a.team_game_number;
             let b_game = b.team_game_number;
