@@ -4,7 +4,6 @@ extern crate rustc_serialize;
 use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
-use std::cmp::Ordering;
 
 use csv::Reader;
 
