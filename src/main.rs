@@ -193,8 +193,8 @@ struct RetrosheetGameLog {
 struct Streak {
     team_id: String,
     year: String,
-    start: String,
-    end: String,
+    start_date: String,
+    end_date: String,
     streak_type: StreakType,
     length: u8,
     final_wins: u8,
@@ -237,8 +237,8 @@ impl Streak {
         Streak {
             team_id: team_id,
             year: String::from(""),
-            start: game.date.clone(),
-            end: game.date.clone(),
+            start_date: game.date.clone(),
+            end_date: game.date.clone(),
             streak_type: streak_type,
             length: 1,
             final_wins: 1,
