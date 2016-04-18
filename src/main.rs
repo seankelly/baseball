@@ -31,20 +31,10 @@ enum StreakType {
 }
 
 impl Streak {
-    fn from_game(game: &retrosheet::TeamGameLog, home_team: bool) -> Streak {
-        let team_id = if home_team {
-            game.home_team.clone()
-        }
-        else {
-            game.visitor_team.clone()
-        };
+    fn from_game(game: &retrosheet::TeamGameLog) -> Streak {
+        let team_id = game.team.clone();
 
-        let (game_number, team_score, other_score) = if home_team {
-            (game.home_team_game_number, game.home_score, game.visitor_score)
-        }
-        else {
-            (game.visitor_team_game_number, game.visitor_score, game.home_score)
-        };
+        let (game_number, team_score, other_score) = (game.team_game_number, game.score, game.opponent_score);
 
         let streak_type = if team_score > other_score {
             StreakType::Winning
@@ -100,19 +90,8 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
     // because the ordering is in one of two variables.
     for (team_id, team_season) in season.iter_mut() {
         team_season.sort_by(|a, b| {
-            let a_game = if *team_id == a.home_team {
-                a.home_team_game_number
-            }
-            else {
-                a.visitor_team_game_number
-            };
-            let b_game = if *team_id == b.home_team {
-                b.home_team_game_number
-            }
-            else {
-                b.visitor_team_game_number
-            };
-
+            let a_game = a.team_game_number;
+            let b_game = b.team_game_number;
             a_game.cmp(&b_game)
         });
     }
