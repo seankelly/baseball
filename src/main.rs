@@ -23,6 +23,7 @@ struct Streak {
     made_postseason: bool,
 }
 
+#[derive(PartialEq)]
 enum StreakType {
     Winning,
     Losing,
