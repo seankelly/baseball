@@ -142,9 +142,7 @@ fn dump_season_streaks(streaks: &Vec<Streak>) {
 fn main() {
     for file in env::args().skip(1) {
         let games = season_games(&file);
-        let num_games = games.len();
 
-        //println!("{} has {} games", file, num_games);
         let team_seasons = order_season(games);
         let streaks = process_season_streaks(team_seasons);
         dump_season_streaks(&streaks);
