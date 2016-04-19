@@ -47,7 +47,7 @@ impl Streak {
 
         Streak {
             team_id: team_id,
-            year: String::from(""),
+            year: game.date[0..4].to_string(),
             start_date: game.date.clone(),
             end_date: game.date.clone(),
             start_game: game_number,
