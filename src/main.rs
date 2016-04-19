@@ -105,6 +105,8 @@ fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>
         }
 
         let mut season_streaks = team_season.iter().map(Streak::from_game).collect::<Vec<Streak>>();
+        // Reverse the Vec because pop returns the last element but need the first element.
+        season_streaks.reverse();
         let mut active_streak = season_streaks.pop().expect("season_streaks shouldn't be empty.");
         loop {
             if season_streaks.len() == 0 {
