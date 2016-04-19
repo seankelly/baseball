@@ -132,7 +132,7 @@ fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>
 }
 
 fn dump_season_streaks(streaks: &Vec<Streak>) {
-    let mut writer = csv::Writer::from_memory();
+    let mut writer = Writer::from_memory();
     for record in streaks.into_iter() {
         let result = writer.encode(record).expect("Encoded streak into CSV.");
     }
