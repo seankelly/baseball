@@ -100,7 +100,36 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
 }
 
 fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>) -> Vec<Streak> {
-    let streaks = Vec::new();
+    let mut streaks = Vec::new();
+
+    for (team_id, team_season) in &season {
+        // If no games in this season, skip trying to process it.
+        if team_season.len() == 0 {
+            continue;
+        }
+
+        let mut season_streaks = team_season.iter().map(Streak::from_game).collect::<Vec<Streak>>();
+        let mut active_streak = season_streaks.pop().expect("season_streaks shouldn't be empty.");
+        loop {
+            if season_streaks.len() == 0 {
+                break;
+            }
+
+            let next_streak = season_streaks.pop().expect("season_streaks shouldn't be empty.");
+            if active_streak.end_game + 1 == next_streak.start_game && active_streak.streak_type == next_streak.streak_type {
+                active_streak.end_date = next_streak.end_date.clone();
+                active_streak.end_game = next_streak.end_game.clone();
+                active_streak.length += 1;
+            }
+            else {
+                streaks.push(active_streak);
+                active_streak = next_streak;
+            }
+        }
+
+        streaks.push(active_streak);
+    }
+
     return streaks;
 }
 
@@ -111,5 +140,6 @@ fn main() {
 
         println!("{} has {} games", file, num_games);
         let team_seasons = order_season(games);
+        let streaks = process_season_streaks(team_seasons);
     }
 }
