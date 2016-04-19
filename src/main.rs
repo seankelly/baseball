@@ -20,9 +20,6 @@ struct Streak {
     end_game: u16,
     streak_type: StreakType,
     length: u8,
-    final_wins: u16,
-    final_losses: u16,
-    made_postseason: bool,
 }
 
 #[derive(Debug, PartialEq, RustcDecodable, RustcEncodable)]
@@ -57,9 +54,6 @@ impl Streak {
             end_game: game_number,
             streak_type: streak_type,
             length: 1,
-            final_wins: 1,
-            final_losses: 1,
-            made_postseason: false,
         }
     }
 }
