@@ -102,7 +102,7 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
 fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>) -> Vec<Streak> {
     let mut streaks = Vec::new();
 
-    for (team_id, team_season) in &season {
+    for (_team_id, team_season) in &season {
         // If no games in this season, skip trying to process it.
         if team_season.len() == 0 {
             continue;
