@@ -6,9 +6,11 @@ use std::collections::BTreeMap;
 use std::clone::Clone;
 
 use csv::Reader;
+use csv::Writer;
 
 mod retrosheet;
 
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 struct Streak {
     team_id: String,
     year: String,
@@ -23,7 +25,7 @@ struct Streak {
     made_postseason: bool,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, RustcDecodable, RustcEncodable)]
 enum StreakType {
     Winning,
     Losing,
@@ -133,13 +135,22 @@ fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>
     return streaks;
 }
 
+fn dump_season_streaks(streaks: &Vec<Streak>) {
+    let mut writer = csv::Writer::from_memory();
+    for record in streaks.into_iter() {
+        let result = writer.encode(record).expect("Encoded streak into CSV.");
+    }
+    print!("{}", writer.as_string());
+}
+
 fn main() {
     for file in env::args().skip(1) {
         let games = season_games(&file);
         let num_games = games.len();
 
-        println!("{} has {} games", file, num_games);
+        //println!("{} has {} games", file, num_games);
         let team_seasons = order_season(games);
         let streaks = process_season_streaks(team_seasons);
+        dump_season_streaks(&streaks);
     }
 }
