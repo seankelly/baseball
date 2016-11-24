@@ -1,3 +1,4 @@
+extern crate baseball;
 extern crate csv;
 extern crate rustc_serialize;
 
@@ -8,7 +9,7 @@ use std::clone::Clone;
 use csv::Reader;
 use csv::Writer;
 
-mod retrosheet;
+use baseball::retrosheet;
 
 #[derive(Debug, RustcDecodable, RustcEncodable)]
 struct Streak {
