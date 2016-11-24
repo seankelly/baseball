@@ -1,5 +1,5 @@
 [root]
-name = "streak"
+name = "baseball"
 version = "0.1.0"
 dependencies = [
  "csv 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
