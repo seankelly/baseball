@@ -1,4 +1,6 @@
 
+pub mod transactions;
+
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct RetrosheetGameLog {
     // 1
