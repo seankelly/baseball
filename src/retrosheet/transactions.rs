@@ -2,7 +2,7 @@
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct Transaction {
     primary_date: String,
-    time: Option<TransactionTime>,
+    time: Option<u8>,
     approximate_indicator: Option<bool>,
     secondary_date: Option<String>,
     secondary_approximate_indicator: Option<bool>,
