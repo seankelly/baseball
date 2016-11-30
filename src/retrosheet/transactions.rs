@@ -1,22 +1,22 @@
 
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct Transaction {
-    primary_date: String,
-    time: Option<u8>,
-    approximate_indicator: Option<bool>,
-    secondary_date: Option<String>,
-    secondary_approximate_indicator: Option<bool>,
-    transaction_id: u32,
-    player: String,
-    transaction_type: TransactionType,
-    from_team: Option<String>,
-    from_league: Option<String>,
-    to_team: Option<String>,
-    to_league: Option<String>,
-    draft_type: Option<DraftType>,
-    draft_round: Option<u8>,
-    pick_number: Option<u16>,
-    info: Option<String>,
+    pub primary_date: String,
+    pub time: Option<u8>,
+    pub approximate_indicator: Option<bool>,
+    pub secondary_date: Option<String>,
+    pub secondary_approximate_indicator: Option<bool>,
+    pub transaction_id: u32,
+    pub player: String,
+    pub transaction_type: TransactionType,
+    pub from_team: Option<String>,
+    pub from_league: Option<String>,
+    pub to_team: Option<String>,
+    pub to_league: Option<String>,
+    pub draft_type: Option<DraftType>,
+    pub draft_round: Option<u8>,
+    pub pick_number: Option<u16>,
+    pub info: Option<String>,
 }
 
 #[derive(Clone, Debug, RustcDecodable)]
