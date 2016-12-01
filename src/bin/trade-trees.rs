@@ -29,7 +29,7 @@ fn load_transactions(file: &str) -> Vec<transactions::Transaction> {
 
     let mut transactions = csv_reader.decode().collect::<csv::Result<Vec<transactions::Transaction>>>().unwrap();
     transactions.sort_by(|a, b| {
-        a.transaction_id.cmp(&b.transaction_id)
+        a.primary_date.cmp(&b.primary_date)
     });
     transactions
 }
