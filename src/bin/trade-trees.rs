@@ -4,6 +4,7 @@ extern crate rustc_serialize;
 
 use std::env;
 use std::clone::Clone;
+use std::collections::HashMap;
 
 use csv::Reader;
 use csv::Writer;
@@ -35,6 +36,12 @@ fn load_transactions(file: &str) -> Vec<transactions::Transaction> {
 }
 
 fn group_transactions(transactions: &Vec<transactions::Transaction>) {
+    let mut players = HashMap::new();
+    for transaction in transactions {
+        let player_id = transaction.player.clone();
+        let mut player_transactions = players.entry(player_id).or_insert(Vec::new());
+        player_transactions.push(transaction.clone());
+    }
 }
 
 fn main() {
