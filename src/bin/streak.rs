@@ -1,17 +1,21 @@
+#[macro_use]
+extern crate serde_derive;
+
 extern crate baseball;
 extern crate csv;
-extern crate rustc_serialize;
+extern crate serde;
 
 use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
+use std::io;
 
-use csv::Reader;
-use csv::Writer;
+use csv::ReaderBuilder;
+use csv::WriterBuilder;
 
 use baseball::retrosheet;
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Streak {
     team_id: String,
     year: String,
@@ -23,7 +27,7 @@ struct Streak {
     length: u8,
 }
 
-#[derive(Debug, PartialEq, RustcDecodable, RustcEncodable)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 enum StreakType {
     Winning,
     Losing,
@@ -60,10 +64,15 @@ impl Streak {
 }
 
 fn season_games(file: &str) -> Vec<retrosheet::RetrosheetGameLog> {
-    let mut csv_reader = Reader::from_file(file)
-                            .expect("Couldn't open file.")
-                            .has_headers(false);
-    let games = csv_reader.decode().collect::<csv::Result<Vec<retrosheet::RetrosheetGameLog>>>().unwrap();
+    let mut csv_reader = ReaderBuilder::new()
+                            .has_headers(false)
+                            .from_path(file)
+                            .expect("Couldn't open file.");
+    let mut games = Vec::new();
+    for record in csv_reader.deserialize() {
+        let game: retrosheet::RetrosheetGameLog = record.expect("Couldn't decode game");
+        games.push(game);
+    }
     return games;
 }
 
@@ -133,11 +142,10 @@ fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>
 }
 
 fn dump_season_streaks(streaks: &Vec<Streak>) {
-    let mut writer = Writer::from_memory();
+    let mut writer = WriterBuilder::new().from_writer(io::stdout());
     for record in streaks.into_iter() {
-        let result = writer.encode(record).expect("Encoded streak into CSV.");
+        writer.serialize(record).expect("Encoded streak into CSV.");
     }
-    print!("{}", writer.as_string());
 }
 
 fn main() {

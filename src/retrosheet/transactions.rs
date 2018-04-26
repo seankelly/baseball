@@ -1,5 +1,5 @@
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
     pub primary_date: String,
     pub time: Option<u8>,
@@ -19,14 +19,14 @@ pub struct Transaction {
     pub info: Option<String>,
 }
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub enum TransactionTime {
     BeforeAllGames,
     InBetweenGames,
     AfterAllGames,
 }
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub enum TransactionType {
     A, // assigned from one team to another without compensation
     C, // conditional deal
@@ -92,7 +92,7 @@ pub enum TransactionType {
     Zr, // returned from voluntarily retired list
 }
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub enum DraftType {
     Regular,
     Secondary,

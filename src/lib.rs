@@ -1,4 +1,7 @@
+#[macro_use]
+extern crate serde_derive;
+
 extern crate csv;
-extern crate rustc_serialize;
+extern crate serde;
 
 pub mod retrosheet;

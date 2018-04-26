@@ -1,7 +1,7 @@
 
 pub mod transactions;
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RetrosheetGameLog {
     // 1
     pub date: String,
@@ -184,7 +184,7 @@ pub struct RetrosheetGameLog {
 }
 
 
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct TeamGameLog {
     // 1
     pub date: String,

@@ -1,13 +1,13 @@
 extern crate baseball;
 extern crate csv;
-extern crate rustc_serialize;
+extern crate serde;
 
 use std::env;
 use std::clone::Clone;
 use std::collections::HashMap;
 
-use csv::Reader;
-use csv::Writer;
+use csv::ReaderBuilder;
+use csv::WriterBuilder;
 
 use baseball::retrosheet::transactions;
 
@@ -24,11 +24,16 @@ struct Link {
 
 
 fn load_transactions(file: &str) -> Vec<transactions::Transaction> {
-    let mut csv_reader = Reader::from_file(file)
-                            .expect("Couldn't open file.")
-                            .has_headers(false);
+    let mut csv_reader = ReaderBuilder::new()
+                            .has_headers(false)
+                            .from_path(file)
+                            .expect("Couldn't open file.");
 
-    let mut transactions = csv_reader.decode().collect::<csv::Result<Vec<transactions::Transaction>>>().unwrap();
+    let mut transactions = Vec::new();
+    for record in csv_reader.deserialize() {
+        let transaction: transactions::Transaction = record.expect("Couldn't decode transaction");
+        transactions.push(transaction);
+    }
     transactions.sort_by(|a, b| {
         a.primary_date.cmp(&b.primary_date)
     });

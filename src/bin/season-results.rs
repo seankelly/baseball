@@ -1,14 +1,18 @@
+#[macro_use]
+extern crate serde_derive;
+
 extern crate csv;
-extern crate rustc_serialize;
+extern crate serde;
 
 use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
+use std::io;
 
-use csv::Reader;
-use csv::Writer;
+use csv::ReaderBuilder;
+use csv::WriterBuilder;
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Streak {
     team_id: String,
     year: u16,
@@ -20,7 +24,7 @@ struct Streak {
     length: u8,
 }
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Deserialize, Serialize)]
 struct FullStreak {
     team_id: String,
     year: u16,
@@ -35,7 +39,7 @@ struct FullStreak {
     postseason: String,
 }
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Deserialize, Serialize)]
 struct SeasonResults {
     rank: u16,
     year: u16,
@@ -61,7 +65,7 @@ struct SeasonResults {
     managers: String,
 }
 
-#[derive(Debug, PartialEq, RustcDecodable, RustcEncodable)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 enum StreakType {
     Winning,
     Losing,
@@ -89,20 +93,25 @@ impl FullStreak {
 
 
 fn load_streaks(streaks_file: &str) -> Vec<Streak> {
-    let mut csv_reader = Reader::from_file(streaks_file)
-                            .expect("Couldn't open file.")
-                            .has_headers(false);
-    let streaks = csv_reader.decode().collect::<csv::Result<Vec<Streak>>>().unwrap();
+    let mut csv_reader = ReaderBuilder::new()
+                            .has_headers(false)
+                            .from_path(streaks_file)
+                            .expect("Couldn't open file.");
+    let mut streaks = Vec::new();
+    for record in csv_reader.deserialize() {
+        let streak: Streak = record.expect("Couldn't decode record");
+        streaks.push(streak);
+    }
     return streaks;
 }
 
 fn load_results(results_file: &str) -> BTreeMap<(String, u16), SeasonResults> {
-    let mut csv_reader = Reader::from_file(results_file)
-                            .expect("Couldn't open file.")
-                            .has_headers(false);
-    let results = csv_reader.decode();
+    let mut csv_reader = ReaderBuilder::new()
+                            .has_headers(false)
+                            .from_path(results_file)
+                            .expect("Couldn't open file.");
     let mut results_map = BTreeMap::new();
-    for row in results {
+    for row in csv_reader.deserialize() {
         let record: SeasonResults = row.unwrap();
         let key = (record.retroid.clone(), record.year);
         results_map.insert(key, record);
@@ -128,11 +137,10 @@ fn join_streaks_with_results(streaks: &Vec<Streak>,
 }
 
 fn dump_full_streaks(full_streaks: &Vec<FullStreak>) {
-    let mut writer = Writer::from_memory();
+    let mut writer = WriterBuilder::new().from_writer(io::stdout());
     for record in full_streaks.into_iter() {
-        let result = writer.encode(record).expect("Encoded streak into CSV.");
+        writer.serialize(record).expect("Encoded streak into CSV.");
     }
-    print!("{}", writer.as_string());
 }
 
 fn main() {
