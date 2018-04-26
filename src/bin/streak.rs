@@ -146,6 +146,7 @@ fn dump_season_streaks(streaks: &Vec<Streak>) {
     for record in streaks.into_iter() {
         writer.serialize(record).expect("Encoded streak into CSV.");
     }
+    writer.flush().expect("Failed flushing to stdout");
 }
 
 fn main() {

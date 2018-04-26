@@ -141,6 +141,7 @@ fn dump_full_streaks(full_streaks: &Vec<FullStreak>) {
     for record in full_streaks.into_iter() {
         writer.serialize(record).expect("Encoded streak into CSV.");
     }
+    writer.flush().expect("Failed flushing to stdout");
 }
 
 fn main() {
