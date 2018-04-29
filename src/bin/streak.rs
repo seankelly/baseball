@@ -9,8 +9,8 @@ use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
 use std::io;
+use std::path::Path;
 
-use csv::ReaderBuilder;
 use csv::WriterBuilder;
 
 use baseball::retrosheet::games;
@@ -61,19 +61,6 @@ impl Streak {
             length: 1,
         }
     }
-}
-
-fn season_games(file: &str) -> Vec<games::RetrosheetGameLog> {
-    let mut csv_reader = ReaderBuilder::new()
-                            .has_headers(false)
-                            .from_path(file)
-                            .expect("Couldn't open file.");
-    let mut games = Vec::new();
-    for record in csv_reader.deserialize() {
-        let game: games::RetrosheetGameLog = record.expect("Couldn't decode game");
-        games.push(game);
-    }
-    return games;
 }
 
 fn order_season(games: Vec<games::RetrosheetGameLog>) -> BTreeMap<String, Vec<games::TeamGameLog>> {
@@ -151,7 +138,8 @@ fn dump_season_streaks(streaks: &Vec<Streak>) {
 
 fn main() {
     for file in env::args().skip(1) {
-        let games = season_games(&file);
+        let path = Path::new(&file);
+        let games = games::RetrosheetGameLog::load_game_logs(&path);
 
         let team_seasons = order_season(games);
         let streaks = process_season_streaks(team_seasons);
