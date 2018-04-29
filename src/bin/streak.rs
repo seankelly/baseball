@@ -13,7 +13,7 @@ use std::io;
 use csv::ReaderBuilder;
 use csv::WriterBuilder;
 
-use baseball::retrosheet;
+use baseball::retrosheet::games;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Streak {
@@ -35,7 +35,7 @@ enum StreakType {
 }
 
 impl Streak {
-    fn from_game(game: &retrosheet::TeamGameLog) -> Streak {
+    fn from_game(game: &games::TeamGameLog) -> Streak {
         let team_id = game.team.clone();
 
         let (game_number, team_score, other_score) = (game.team_game_number, game.score, game.opponent_score);
@@ -63,20 +63,20 @@ impl Streak {
     }
 }
 
-fn season_games(file: &str) -> Vec<retrosheet::RetrosheetGameLog> {
+fn season_games(file: &str) -> Vec<games::RetrosheetGameLog> {
     let mut csv_reader = ReaderBuilder::new()
                             .has_headers(false)
                             .from_path(file)
                             .expect("Couldn't open file.");
     let mut games = Vec::new();
     for record in csv_reader.deserialize() {
-        let game: retrosheet::RetrosheetGameLog = record.expect("Couldn't decode game");
+        let game: games::RetrosheetGameLog = record.expect("Couldn't decode game");
         games.push(game);
     }
     return games;
 }
 
-fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, Vec<retrosheet::TeamGameLog>> {
+fn order_season(games: Vec<games::RetrosheetGameLog>) -> BTreeMap<String, Vec<games::TeamGameLog>> {
     let mut season = BTreeMap::new();
 
     for game in games {
@@ -105,7 +105,7 @@ fn order_season(games: Vec<retrosheet::RetrosheetGameLog>) -> BTreeMap<String, V
     return season;
 }
 
-fn process_season_streaks(season: BTreeMap<String, Vec<retrosheet::TeamGameLog>>) -> Vec<Streak> {
+fn process_season_streaks(season: BTreeMap<String, Vec<games::TeamGameLog>>) -> Vec<Streak> {
     let mut streaks = Vec::new();
 
     for (_team_id, team_season) in &season {
