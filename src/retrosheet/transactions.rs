@@ -1,3 +1,7 @@
+use std::path::Path;
+
+use csv::ReaderBuilder;
+
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
@@ -99,4 +103,21 @@ pub enum DraftType {
     SecondaryActive,
     AmericanLegion,
     Dominican,
+}
+
+
+impl Transaction {
+    pub fn load_transactions(file: &Path) -> Vec<Transaction> {
+        let mut csv_reader = ReaderBuilder::new()
+                                .has_headers(false)
+                                .from_path(file)
+                                .expect("Couldn't open file.");
+
+        let mut transactions = Vec::new();
+        for record in csv_reader.deserialize() {
+            let transaction: Transaction = record.expect("Couldn't decode transaction");
+            transactions.push(transaction);
+        }
+        transactions
+    }
 }
