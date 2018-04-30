@@ -9,29 +9,29 @@ use std::path::Path;
 
 use csv::WriterBuilder;
 
-use baseball::retrosheet::transactions;
+use baseball::retrosheet::transactions::Transaction;
 
 
 struct Trade {
-    transactions: Vec<transactions::Transaction>,
+    transactions: Vec<Transaction>,
     links: Vec<Option<Box<Link>>>,
 }
 
 struct Link {
     player: String,
-    transaction: transactions::Transaction,
+    transaction: Transaction,
 }
 
 
-fn load_transactions(file: &str) -> Vec<transactions::Transaction> {
-    let mut transactions = transactions::Transaction::load_transactions(Path::new(file));
+fn load_transactions(file: &str) -> Vec<Transaction> {
+    let mut transactions = Transaction::load_transactions(Path::new(file));
     transactions.sort_by(|a, b| {
         a.primary_date.cmp(&b.primary_date)
     });
     transactions
 }
 
-fn group_transactions(transactions: Vec<transactions::Transaction>) {
+fn group_transactions(transactions: Vec<Transaction>) {
     let mut players = HashMap::new();
     for transaction in &transactions {
         let player_id = &transaction.player;
