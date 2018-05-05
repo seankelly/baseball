@@ -71,6 +71,9 @@ fn process_team(teams: &mut HashMap<String, BTreeMap<u16, SeasonResults>>, team_
     let team = teams.entry(String::from(team_id)).or_insert(BTreeMap::new());
     let season = team.entry(year).or_insert(SeasonResults::default());
     let opponent = season.opponents.entry(String::from(opponent_id)).or_insert(OpponentResults::default());
+    if season.year == 0 {
+        season.year = year;
+    }
     match result {
         GameResult::Win => {
             season.overall.wins += 1;
