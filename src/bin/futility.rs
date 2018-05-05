@@ -37,6 +37,7 @@ struct SeasonResults {
 #[derive(Debug, Default)]
 struct OpponentResults {
     actual: SeasonSummary,
+    expected: f32,
 }
 
 struct FinalTeamResults {
