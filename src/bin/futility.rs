@@ -8,6 +8,7 @@ extern crate serde;
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::ops::Sub;
 use std::path::Path;
 
 use clap::{Arg, App};
@@ -20,7 +21,7 @@ enum GameResult {
     Tie,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 struct SeasonSummary {
     wins: u8,
     losses: u8,
@@ -42,6 +43,35 @@ struct OpponentResults {
 
 struct FinalTeamResults {
     opponents: HashMap<String, BTreeMap<u16, OpponentResults>>,
+}
+
+impl<'a, 'b> Sub<&'a OpponentResults> for &'b SeasonSummary {
+    type Output = SeasonSummary;
+    fn sub(self, opponent: &'a OpponentResults) -> SeasonSummary {
+        SeasonSummary {
+            wins: self.wins - opponent.actual.wins,
+            losses: self.losses - opponent.actual.losses,
+            ties: self.ties - opponent.actual.ties,
+        }
+    }
+}
+
+impl OpponentResults {
+    fn copy_with_expected(&self, expected: f32) -> Self {
+        OpponentResults {
+            actual: self.actual.clone(),
+            expected: expected,
+        }
+    }
+}
+
+impl SeasonSummary {
+    fn winning_percentage(&self) -> f32 {
+        let wins = self.wins as f32;
+        let losses = self.losses as f32;
+        let ties = self.ties as f32;
+        wins / (wins + losses + ties)
+    }
 }
 
 /*
@@ -114,6 +144,28 @@ fn process_games(games: Vec<retrosheet::games::RetrosheetGameLog>) -> HashMap<St
     return teams;
 }
 
+fn process_seasons(teams: HashMap<String, BTreeMap<u16, SeasonResults>>) -> HashMap<String,
+   HashMap<String, BTreeMap<u16, OpponentResults>>>
+{
+    let mut teams_futility = HashMap::new();
+    for (team, seasons) in teams.iter() {
+        let mut team_futility = teams_futility.entry(team.clone())
+            .or_insert_with(HashMap::new);
+        for (year, season) in seasons.iter() {
+            for (opponent, vs_record) in season.opponents.iter() {
+                let mut vs_opponent = team_futility.entry(opponent.clone())
+                    .or_insert_with(BTreeMap::new);
+                let other_record = &season.overall - vs_record;
+                let expected = other_record.winning_percentage();
+                let vs_season = vs_record.copy_with_expected(expected);
+                vs_opponent.insert(*year, vs_season);
+            }
+        }
+    }
+
+    return teams_futility;
+}
+
 fn run() {
     let matches = App::new("Team Futility")
         .about("Find stetches of team futility against another team.")
@@ -129,7 +181,8 @@ fn run() {
             let season_games = retrosheet::games::RetrosheetGameLog::load_game_logs(Path::new(game_log_path));
             games.extend(season_games);
         }
-        process_games(games);
+        let teams = process_games(games);
+        process_seasons(teams);
     }
 
 }
