@@ -65,13 +65,14 @@ struct FinalTeamResults {
  *         wins: X
  *         losses: Y
  *         ties: Z
+ *         expected: W
  */
 
 fn process_team(teams: &mut HashMap<String, BTreeMap<u16, SeasonResults>>, team_id: &str, opponent_id: &str,
                 year: u16, result: GameResult) {
-    let team = teams.entry(String::from(team_id)).or_insert(BTreeMap::new());
-    let season = team.entry(year).or_insert(SeasonResults::default());
-    let opponent = season.opponents.entry(String::from(opponent_id)).or_insert(OpponentResults::default());
+    let team = teams.entry(String::from(team_id)).or_insert_with(BTreeMap::new);
+    let season = team.entry(year).or_insert_with(SeasonResults::default);
+    let opponent = season.opponents.entry(String::from(opponent_id)).or_insert_with(OpponentResults::default);
     if season.year == 0 {
         season.year = year;
     }
