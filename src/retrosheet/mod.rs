@@ -1,3 +1,7 @@
 
 pub mod transactions;
-pub mod games;
+
+mod chadwick;
+
+pub use self::chadwick::games::GameLog;
+pub use self::chadwick::games::TeamGameLog;

@@ -122,7 +122,7 @@ fn process_team(teams: &mut HashMap<String, BTreeMap<u16, SeasonResults>>, team_
     }
 }
 
-fn process_games(games: Vec<retrosheet::games::RetrosheetGameLog>) -> HashMap<String, BTreeMap<u16, SeasonResults>> {
+fn process_games(games: Vec<retrosheet::GameLog>) -> HashMap<String, BTreeMap<u16, SeasonResults>> {
     let mut teams = HashMap::new();
     for game in &games {
         // The date field is in the format "yyyymmdd";
@@ -178,7 +178,7 @@ fn run() {
     if let Some(game_logs) = matches.values_of("game-log") {
         let mut games = Vec::new();
         for game_log_path in game_logs {
-            let season_games = retrosheet::games::RetrosheetGameLog::load_game_logs(Path::new(game_log_path));
+            let season_games = retrosheet::GameLog::load_game_logs(Path::new(game_log_path));
             games.extend(season_games);
         }
         let teams = process_games(games);

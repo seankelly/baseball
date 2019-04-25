@@ -13,7 +13,8 @@ use std::path::Path;
 
 use csv::WriterBuilder;
 
-use baseball::retrosheet::games;
+use baseball::retrosheet::GameLog;
+use baseball::retrosheet::TeamGameLog;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Streak {
@@ -35,7 +36,7 @@ enum StreakType {
 }
 
 impl Streak {
-    fn from_game(game: &games::TeamGameLog) -> Streak {
+    fn from_game(game: &TeamGameLog) -> Streak {
         let team_id = game.team.clone();
 
         let (game_number, team_score, other_score) = (game.team_game_number, game.score, game.opponent_score);
@@ -63,7 +64,7 @@ impl Streak {
     }
 }
 
-fn order_season(games: Vec<games::RetrosheetGameLog>) -> BTreeMap<String, Vec<games::TeamGameLog>> {
+fn order_season(games: Vec<GameLog>) -> BTreeMap<String, Vec<TeamGameLog>> {
     let mut season = BTreeMap::new();
 
     for game in games {
@@ -92,7 +93,7 @@ fn order_season(games: Vec<games::RetrosheetGameLog>) -> BTreeMap<String, Vec<ga
     return season;
 }
 
-fn process_season_streaks(season: BTreeMap<String, Vec<games::TeamGameLog>>) -> Vec<Streak> {
+fn process_season_streaks(season: BTreeMap<String, Vec<TeamGameLog>>) -> Vec<Streak> {
     let mut streaks = Vec::new();
 
     for (_team_id, team_season) in &season {
@@ -139,7 +140,7 @@ fn dump_season_streaks(streaks: &Vec<Streak>) {
 fn main() {
     for file in env::args().skip(1) {
         let path = Path::new(&file);
-        let games = games::RetrosheetGameLog::load_game_logs(&path);
+        let games = GameLog::load_game_logs(&path);
 
         let team_seasons = order_season(games);
         let streaks = process_season_streaks(team_seasons);

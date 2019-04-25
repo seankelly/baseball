@@ -4,7 +4,7 @@ use csv::ReaderBuilder;
 
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RetrosheetGameLog {
+pub struct GameLog {
     // 1
     pub date: String,
     pub number_of_game: String,
@@ -369,7 +369,7 @@ pub struct TeamGameLog {
 }
 
 
-impl RetrosheetGameLog {
+impl GameLog {
     pub fn load_game_logs(file: &Path) -> Vec<Self> {
         let mut csv_reader = ReaderBuilder::new()
                                 .has_headers(false)
@@ -390,7 +390,7 @@ impl RetrosheetGameLog {
 }
 
 impl TeamGameLog {
-    fn from_home_team(game: &RetrosheetGameLog) -> TeamGameLog {
+    fn from_home_team(game: &GameLog) -> TeamGameLog {
         TeamGameLog {
             // 1
             date: game.date.clone(),
@@ -573,7 +573,7 @@ impl TeamGameLog {
         }
     }
 
-    fn from_visitor_team(game: &RetrosheetGameLog) -> TeamGameLog {
+    fn from_visitor_team(game: &GameLog) -> TeamGameLog {
         TeamGameLog {
             // 1
             date: game.date.clone(),
