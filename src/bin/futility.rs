@@ -178,7 +178,7 @@ fn run() {
     if let Some(game_logs) = matches.values_of("game-log") {
         let mut games = Vec::new();
         for game_log_path in game_logs {
-            let season_games = chadwick::GameLog::load_game_logs(Path::new(game_log_path));
+            let season_games = chadwick::load_file(Path::new(game_log_path));
             games.extend(season_games);
         }
         let teams = process_games(games);

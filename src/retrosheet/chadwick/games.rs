@@ -1,7 +1,3 @@
-use std::path::Path;
-
-use csv::ReaderBuilder;
-
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GameLog {
@@ -370,19 +366,6 @@ pub struct TeamGameLog {
 
 
 impl GameLog {
-    pub fn load_game_logs(file: &Path) -> Vec<Self> {
-        let mut csv_reader = ReaderBuilder::new()
-                                .has_headers(false)
-                                .from_path(file)
-                                .expect("Couldn't open file.");
-        let mut games = Vec::new();
-        for record in csv_reader.deserialize() {
-            let game: Self = record.expect("Couldn't decode game");
-            games.push(game);
-        }
-        return games;
-    }
-
     pub fn each_team_game(&self) -> (TeamGameLog, TeamGameLog) {
         (TeamGameLog::from_home_team(&self),
          TeamGameLog::from_visitor_team(&self))

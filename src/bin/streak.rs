@@ -135,7 +135,7 @@ fn dump_season_streaks(streaks: &Vec<Streak>) {
 fn main() {
     for file in env::args().skip(1) {
         let path = Path::new(&file);
-        let games = chadwick::GameLog::load_game_logs(&path);
+        let games = chadwick::load_file(&path);
 
         let team_seasons = order_season(games);
         let streaks = process_season_streaks(team_seasons);
