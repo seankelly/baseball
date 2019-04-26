@@ -2,6 +2,7 @@
 name = "baseball"
 version = "0.1.0"
 authors = ["Sean Kelly <code@katron.org>"]
+edition = "2018"
 
 [dependencies]
 clap = "~2.31"
