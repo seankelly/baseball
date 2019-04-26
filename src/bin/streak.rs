@@ -70,14 +70,10 @@ fn order_season(games: Vec<GameLog>) -> BTreeMap<String, Vec<TeamGameLog>> {
     for game in games {
         // Check home team first and then the visiting team.
         let (home_game, visitor_game) = game.each_team_game();
-        {
-            let mut team = season.entry(game.home_team).or_insert(Vec::new());
-            team.push(home_game);
-        }
-        {
-            let mut team = season.entry(game.visitor_team).or_insert(Vec::new());
-            team.push(visitor_game);
-        }
+        let team = season.entry(game.home_team).or_insert(Vec::new());
+        team.push(home_game);
+        let team = season.entry(game.visitor_team).or_insert(Vec::new());
+        team.push(visitor_game);
     }
 
     // Now that every team has every game it played, they need to be sorted. This is complicated

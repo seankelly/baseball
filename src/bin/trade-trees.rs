@@ -2,12 +2,9 @@ extern crate baseball;
 extern crate csv;
 extern crate serde;
 
-use std::clone::Clone;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
-
-use csv::WriterBuilder;
 
 use baseball::retrosheet::transactions::Transaction;
 
@@ -35,7 +32,7 @@ fn group_transactions(transactions: Vec<Transaction>) {
     let mut players = HashMap::new();
     for transaction in &transactions {
         let player_id = &transaction.player;
-        let mut player_transactions = players.entry(player_id).or_insert(Vec::new());
+        let player_transactions = players.entry(player_id).or_insert(Vec::new());
         player_transactions.push(transaction);
     }
 }

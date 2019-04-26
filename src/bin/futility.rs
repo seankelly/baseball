@@ -149,11 +149,11 @@ fn process_seasons(teams: HashMap<String, BTreeMap<u16, SeasonResults>>) -> Hash
 {
     let mut teams_futility = HashMap::new();
     for (team, seasons) in teams.iter() {
-        let mut team_futility = teams_futility.entry(team.clone())
+        let team_futility = teams_futility.entry(team.clone())
             .or_insert_with(HashMap::new);
         for (year, season) in seasons.iter() {
             for (opponent, vs_record) in season.opponents.iter() {
-                let mut vs_opponent = team_futility.entry(opponent.clone())
+                let vs_opponent = team_futility.entry(opponent.clone())
                     .or_insert_with(BTreeMap::new);
                 let other_record = &season.overall - vs_record;
                 let expected = other_record.winning_percentage();
