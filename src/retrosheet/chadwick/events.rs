@@ -1,4 +1,7 @@
+use serde::Deserialize;
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "UPPERCASE")]
 struct Event {
 	game_id: String,
 	away_team_id: String,
@@ -99,6 +102,8 @@ struct Event {
 	event_id: String,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "UPPERCASE")]
 struct EventExtended {
     home_team_id: String,
     bat_team_id: String,
