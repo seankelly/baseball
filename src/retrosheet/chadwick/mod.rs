@@ -4,6 +4,7 @@ use csv::ReaderBuilder;
 use serde::Deserialize;
 
 
+pub mod events;
 pub mod games;
 
 pub use games::GameLog;
