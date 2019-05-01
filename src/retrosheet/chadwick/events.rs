@@ -1,4 +1,6 @@
 
+use crate::retrosheet::chadwick::bool_from_string;
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Event {
@@ -32,25 +34,37 @@ pub struct Event {
 	base2_run_id: String,
 	base3_run_id: String,
 	event_tx: String,
+    #[serde(deserialize_with = "bool_from_string")]
 	leadoff_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	ph_fl: bool,
 	bat_fld_cd: String,
 	bat_lineup_id: String,
 	event_cd: String,
+    #[serde(deserialize_with = "bool_from_string")]
 	bat_event_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	ab_fl: bool,
 	h_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	sh_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	sf_fl: bool,
 	event_outs_ct: u8,
+    #[serde(deserialize_with = "bool_from_string")]
 	dp_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	tp_fl: bool,
 	rbi_ct: u8,
+    #[serde(deserialize_with = "bool_from_string")]
 	wp_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	pb_fl: bool,
 	fld_cd: String,
 	battedball_cd: String,
+    #[serde(deserialize_with = "bool_from_string")]
 	bunt_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	foul_fl: bool,
 	battedball_loc_tx: String,
 	err_ct: u8,
@@ -68,22 +82,36 @@ pub struct Event {
 	run1_play_tx: String,
 	run2_play_tx: String,
 	run3_play_tx: String,
+    #[serde(deserialize_with = "bool_from_string")]
 	run1_sb_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run2_sb_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run3_sb_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run1_cs_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run2_cs_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run3_cs_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run1_pk_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run2_pk_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	run3_pk_fl: bool,
 	run1_resp_pit_id: String,
 	run2_resp_pit_id: String,
 	run3_resp_pit_id: String,
+    #[serde(deserialize_with = "bool_from_string")]
 	game_new_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	game_end_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	pr_run1_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	pr_run2_fl: bool,
+    #[serde(deserialize_with = "bool_from_string")]
 	pr_run3_fl: bool,
 	removed_for_pr_run1_id: String,
 	removed_for_pr_run2_id: String,
