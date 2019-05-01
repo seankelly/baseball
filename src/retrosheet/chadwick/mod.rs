@@ -17,7 +17,7 @@ pub fn load_file<T>(file: &Path) -> Vec<T>
     where for<'de> T: Deserialize<'de>
     {
     let mut csv_reader = ReaderBuilder::new()
-                            .has_headers(false)
+                            .has_headers(true)
                             .from_path(file)
                             .expect("Couldn't open file.");
     let mut records = Vec::new();
