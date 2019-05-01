@@ -45,7 +45,7 @@ pub struct Event {
 	bat_event_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
 	ab_fl: bool,
-	h_fl: bool,
+	h_cd: String,
     #[serde(deserialize_with = "bool_from_string")]
 	sh_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
