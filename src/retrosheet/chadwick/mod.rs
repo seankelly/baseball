@@ -7,6 +7,8 @@ use serde::Deserialize;
 pub mod events;
 pub mod games;
 
+pub use events::Event;
+pub use events::EventExtended;
 pub use games::GameLog;
 pub use games::TeamGameLog;
 
