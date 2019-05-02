@@ -38,14 +38,14 @@ pub struct Event {
 	leadoff_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
 	ph_fl: bool,
-	bat_fld_cd: String,
+	bat_fld_cd: u8,
 	bat_lineup_id: String,
-	event_cd: String,
+	event_cd: u8,
     #[serde(deserialize_with = "bool_from_string")]
 	bat_event_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
 	ab_fl: bool,
-	h_cd: String,
+	h_cd: u8,
     #[serde(deserialize_with = "bool_from_string")]
 	sh_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
@@ -60,7 +60,7 @@ pub struct Event {
 	wp_fl: bool,
     #[serde(deserialize_with = "bool_from_string")]
 	pb_fl: bool,
-	fld_cd: String,
+	fld_cd: u8,
 	battedball_cd: String,
     #[serde(deserialize_with = "bool_from_string")]
 	bunt_fl: bool,
@@ -68,11 +68,11 @@ pub struct Event {
 	foul_fl: bool,
 	battedball_loc_tx: String,
 	err_ct: u8,
-	err1_fld_cd: String,
+	err1_fld_cd: u8,
 	err1_cd: String,
-	err2_fld_cd: String,
+	err2_fld_cd: u8,
 	err2_cd: String,
-	err3_fld_cd: String,
+	err3_fld_cd: u8,
 	err3_cd: String,
 	bat_dest_id: String,
 	run1_dest_id: String,
@@ -117,15 +117,15 @@ pub struct Event {
 	removed_for_pr_run2_id: String,
 	removed_for_pr_run3_id: String,
 	removed_for_ph_bat_id: String,
-	removed_for_ph_bat_fld_cd: String,
-	po1_fld_cd: String,
-	po2_fld_cd: String,
-	po3_fld_cd: String,
-	ass1_fld_cd: String,
-	ass2_fld_cd: String,
-	ass3_fld_cd: String,
-	ass4_fld_cd: String,
-	ass5_fld_cd: String,
+	removed_for_ph_bat_fld_cd: u8,
+	po1_fld_cd: u8,
+	po2_fld_cd: u8,
+	po3_fld_cd: u8,
+	ass1_fld_cd: u8,
+	ass2_fld_cd: u8,
+	ass3_fld_cd: u8,
+	ass4_fld_cd: u8,
+	ass5_fld_cd: u8,
 	event_id: String,
 }
 
