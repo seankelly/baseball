@@ -1,10 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate clap;
-extern crate csv;
-extern crate serde;
-
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ops::Sub;

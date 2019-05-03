@@ -1,9 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate csv;
-extern crate serde;
-
 use std::env;
 use std::collections::BTreeMap;
 use std::clone::Clone;
