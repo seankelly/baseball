@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate baseball;
 extern crate clap;
 extern crate csv;
 extern crate serde;
@@ -13,7 +12,7 @@ use std::path::Path;
 
 use clap::{Arg, App};
 
-use baseball::retrosheet::chadwick;
+use retrosheet::chadwick;
 
 enum GameResult {
     Win,

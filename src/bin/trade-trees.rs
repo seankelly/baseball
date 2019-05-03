@@ -1,4 +1,3 @@
-extern crate baseball;
 extern crate csv;
 extern crate serde;
 
@@ -6,7 +5,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
-use baseball::retrosheet::transactions::Transaction;
+use retrosheet::transactions::Transaction;
 
 
 struct Trade {

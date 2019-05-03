@@ -1,5 +1,5 @@
 
-use crate::retrosheet::chadwick::bool_from_string;
+use crate::chadwick::bool_from_string;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]
