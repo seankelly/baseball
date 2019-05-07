@@ -39,7 +39,7 @@ pub struct Event {
     #[serde(deserialize_with = "bool_from_string")]
     pub ph_fl: bool,
     pub bat_fld_cd: u8,
-    pub bat_lineup_id: String,
+    pub bat_lineup_id: u8,
     pub event_cd: u8,
     #[serde(deserialize_with = "bool_from_string")]
     pub bat_event_fl: bool,
