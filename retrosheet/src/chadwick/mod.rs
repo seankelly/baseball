@@ -36,7 +36,7 @@ fn bool_from_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
         "F" => Ok(false),
         other => Err(de::Error::invalid_value(
             Unexpected::Str(other),
-            &"OK or nOK",
+            &"T or F",
         )),
     }
 }
