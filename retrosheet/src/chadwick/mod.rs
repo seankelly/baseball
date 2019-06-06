@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use csv::ReaderBuilder;
+use csv::DeserializeRecordsIntoIter;
 use serde::de::{self, Deserialize, Deserializer, Unexpected};
 
 
@@ -9,8 +10,14 @@ pub mod games;
 
 pub use events::Event;
 pub use events::EventExtended;
+pub use events::Handedness;
 pub use games::GameLog;
 pub use games::TeamGameLog;
+
+
+pub struct ChadwickFileIter<T> {
+    records: DeserializeRecordsIntoIter<std::fs::File, T>,
+}
 
 
 pub fn load_file<T>(file: &Path) -> Vec<T>
@@ -26,6 +33,34 @@ pub fn load_file<T>(file: &Path) -> Vec<T>
         records.push(record);
     }
     return records;
+}
+
+
+impl<T> Iterator for ChadwickFileIter<T>
+    where for<'de> T: Deserialize<'de>
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.records.next()
+            .map(|result| {
+                let record: Self::Item  = result.expect("Couldn't decode record");
+                record
+            })
+    }
+}
+
+pub fn load_file_iter<T>(file: &Path) -> ChadwickFileIter<T>
+    where for<'de> T: Deserialize<'de>
+{
+    let mut csv_reader = ReaderBuilder::new()
+                            .has_headers(true)
+                            .from_path(file)
+                            .expect("Couldn't open file.");
+    let records = csv_reader.into_deserialize();
+    ChadwickFileIter {
+        records: records,
+    }
 }
 
 fn bool_from_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
