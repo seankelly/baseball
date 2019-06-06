@@ -40,3 +40,18 @@ fn bool_from_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
         )),
     }
 }
+
+fn parse_handedness<'de, D>(deserializer: D) -> Result<Handedness, D::Error>
+    where D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)?.as_ref() {
+        "?" => Ok(Handedness::Unknown),
+        "B" => Ok(Handedness::Both),
+        "L" => Ok(Handedness::Left),
+        "R" => Ok(Handedness::Right),
+        other => Err(de::Error::invalid_value(
+            Unexpected::Str(other),
+            &"L or R",
+        )),
+    }
+}

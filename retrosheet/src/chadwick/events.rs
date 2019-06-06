@@ -1,5 +1,6 @@
 
 use crate::chadwick::bool_from_string;
+use crate::chadwick::parse_handedness;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]
@@ -15,13 +16,17 @@ pub struct Event {
     pub away_score_ct: u8,
     pub home_score_ct: u8,
     pub bat_id: String,
-    pub bat_hand_cd: String,
+    #[serde(deserialize_with = "parse_handedness")]
+    pub bat_hand_cd: Handedness,
     pub resp_bat_id: String,
-    pub resp_bat_hand_cd: String,
+    #[serde(deserialize_with = "parse_handedness")]
+    pub resp_bat_hand_cd: Handedness,
     pub pit_id: String,
-    pub pit_hand_cd: String,
+    #[serde(deserialize_with = "parse_handedness")]
+    pub pit_hand_cd: Handedness,
     pub resp_pit_id: String,
-    pub resp_pit_hand_cd: String,
+    #[serde(deserialize_with = "parse_handedness")]
+    pub resp_pit_hand_cd: Handedness,
     pub pos2_fld_id: String,
     pub pos3_fld_id: String,
     pub pos4_fld_id: String,
@@ -127,6 +132,14 @@ pub struct Event {
     pub ass4_fld_cd: u8,
     pub ass5_fld_cd: u8,
     pub event_id: String,
+}
+
+#[derive(Debug)]
+pub enum Handedness {
+    Unknown,
+    Both,
+    Left,
+    Right,
 }
 
 #[derive(Deserialize, Debug)]
