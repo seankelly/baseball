@@ -53,7 +53,7 @@ impl<T> Iterator for ChadwickFileIter<T>
 pub fn load_file_iter<T>(file: &Path) -> ChadwickFileIter<T>
     where for<'de> T: Deserialize<'de>
 {
-    let mut csv_reader = ReaderBuilder::new()
+    let csv_reader = ReaderBuilder::new()
                             .has_headers(true)
                             .from_path(file)
                             .expect("Couldn't open file.");
