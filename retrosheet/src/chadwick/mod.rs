@@ -23,16 +23,8 @@ pub struct ChadwickFileIter<T> {
 pub fn load_file<T>(file: &Path) -> Vec<T>
     where for<'de> T: Deserialize<'de>
 {
-    let mut csv_reader = ReaderBuilder::new()
-                            .has_headers(true)
-                            .from_path(file)
-                            .expect("Couldn't open file.");
-    let mut records = Vec::new();
-    for record in csv_reader.deserialize() {
-        let record: T = record.expect("Couldn't decode record");
-        records.push(record);
-    }
-    return records;
+    let records_iter = load_file_iter(file);
+    return records_iter.collect();
 }
 
 
