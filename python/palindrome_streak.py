@@ -122,7 +122,7 @@ def find_longest_palindrome(string, padding_character=' '):
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument('--team', action='append', help="Team(s) to find game palindromes")
-    parser.add_argument('--limit', default=OUTPUT_LIMIT,
+    parser.add_argument('--limit', default=OUTPUT_LIMIT, type=int,
                         help="Number of palindromes to display (may go over because of ties)")
     parser.add_argument('gamelog', nargs='+')
     args = parser.parse_args()
