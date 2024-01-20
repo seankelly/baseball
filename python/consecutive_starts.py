@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 
 MAX_STREAKS = 10
+PEOPLE = {}
 
 
 @dataclass
@@ -93,11 +94,22 @@ def prune(streaks):
             streaks.pop(idx)
 
 
+def load_people_register(people_file):
+    # Map retrosheet ID to person's name.
+    register = {}
+    with open(people_file) as people_csv:
+        people_reader = csv.DictReader(people_csv)
+        for person in people_reader:
+            register[person['key_retro']] = f"{person['name_first']} {person['name_last']}"
+    return register
+
+
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument('--team', action='append', help="Team(s) to find game palindromes")
     parser.add_argument('--position', type=int, help="Limit to this position")
     parser.add_argument('--count', type=int, help="Include at least this many in the leaderboard")
+    parser.add_argument('--people', help="CSV file of people")
     parser.add_argument('gamelog', nargs='+')
     args = parser.parse_args()
     return args
@@ -105,6 +117,10 @@ def options():
 
 def main():
     args = options()
+
+    if args.people:
+        global PEOPLE
+        PEOPLE = load_people_register(args.people)
 
     include_teams = set()
     if args.team:
