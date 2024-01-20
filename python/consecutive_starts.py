@@ -104,12 +104,31 @@ def load_people_register(people_file):
     return register
 
 
+def streak_csv_output(output_path, max_streak):
+    fields = ['position', 'length', 'year', 'person', 'game_start', 'game_end']
+    with open(output_path, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fields)
+        writer.writeheader()
+        for position, streaks in max_streak.items():
+            for streak in streaks:
+                row = {
+                    'position': position,
+                    'length': len(streak),
+                    'year': streak.season,
+                    'person': PEOPLE.get(streak.playerid, streak.playerid),
+                    'game_start': streak.start,
+                    'game_end': streak.end,
+                }
+                writer.writerow(row)
+
+
 def options():
     parser = argparse.ArgumentParser()
     parser.add_argument('--team', action='append', help="Team(s) to find game palindromes")
     parser.add_argument('--position', type=int, help="Limit to this position")
     parser.add_argument('--count', type=int, help="Include at least this many in the leaderboard")
     parser.add_argument('--people', help="CSV file of people")
+    parser.add_argument('--csv', metavar='FILE', help="Output CSV-formatted data")
     parser.add_argument('gamelog', nargs='+')
     args = parser.parse_args()
     return args
@@ -152,10 +171,13 @@ def main():
                 if len(max_streak[position]) > MAX_STREAKS:
                     prune(max_streak[position])
 
-    for position, streaks in max_streak.items():
-        print(f"Position {position}:")
-        for streak in streaks:
-            print(f"  {len(streak)}: {streak}")
+    if not args.csv:
+        for position, streaks in max_streak.items():
+            print(f"Position {position}:")
+            for streak in streaks:
+                print(f"  {len(streak)}: {streak}")
+    else:
+        streak_csv_output(args.csv, max_streak)
 
 
 if __name__ == '__main__':
