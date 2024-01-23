@@ -119,8 +119,35 @@ def find_longest_palindrome(string, padding_character=' '):
     return true_start, true_end, palindrome
 
 
+def csv_output(output_path, palindromes, minimum_length):
+    fields = ['year', 'team', 'length', 'palindrome', 'game_start', 'game_end', 'wins', 'losses',
+              'ties']
+    with open(output_path, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fields)
+        writer.writeheader()
+        for palindrome in palindromes:
+            if palindrome.length < minimum_length:
+                break
+            wins = palindrome.palindrome.count('W')
+            losses = palindrome.palindrome.count('L')
+            ties = palindrome.palindrome.count('T')
+            row = {
+                'year': palindrome.season,
+                'team': palindrome.team,
+                'length': palindrome.length,
+                'palindrome': palindrome.palindrome,
+                'game_start': palindrome.game_start,
+                'game_end': palindrome.game_end,
+                'wins': wins,
+                'losses': losses,
+                'ties': ties,
+            }
+            writer.writerow(row)
+
+
 def options():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--csv', metavar='FILE', help="Output CSV-formatted data")
     parser.add_argument('--team', action='append', help="Team(s) to find game palindromes")
     parser.add_argument('--limit', default=OUTPUT_LIMIT, type=int,
                         help="Number of palindromes to display (may go over because of ties)")
@@ -156,15 +183,19 @@ def main():
     else:
         last_palindrome = palindromes[-1]
     minimum_length = last_palindrome.length
-    for palindrome in palindromes:
-        if palindrome.length < minimum_length:
-            break
-        wins = palindrome.palindrome.count('W')
-        losses = palindrome.palindrome.count('L')
-        ties = palindrome.palindrome.count('T')
-        game_range = f"{palindrome.game_start}-{palindrome.game_end}"
-        print(f"{palindrome.season}: {palindrome.team}: {palindrome.length}"
-              f" ({game_range: >7}): {palindrome.palindrome} ({wins}-{losses}-{ties})")
+
+    if not args.csv:
+        for palindrome in palindromes:
+            if palindrome.length < minimum_length:
+                break
+            wins = palindrome.palindrome.count('W')
+            losses = palindrome.palindrome.count('L')
+            ties = palindrome.palindrome.count('T')
+            game_range = f"{palindrome.game_start}-{palindrome.game_end}"
+            print(f"{palindrome.season}: {palindrome.team}: {palindrome.length}"
+                f" ({game_range: >7}): {palindrome.palindrome} ({wins}-{losses}-{ties})")
+    else:
+        csv_output(args.csv, palindromes, minimum_length)
 
 
 if __name__ == '__main__':
