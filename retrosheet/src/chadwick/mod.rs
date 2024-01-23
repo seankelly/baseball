@@ -6,13 +6,12 @@ use serde::de::{self, Deserialize, Deserializer, Unexpected};
 
 
 pub mod events;
-pub mod games;
 
 pub use events::Event;
 pub use events::EventExtended;
 pub use events::Handedness;
-pub use games::GameLog;
-pub use games::TeamGameLog;
+pub use crate::game::GameLog;
+pub use crate::game::TeamGameLog;
 
 
 pub struct ChadwickFileIter<T> {
