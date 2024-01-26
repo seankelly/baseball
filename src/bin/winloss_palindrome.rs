@@ -28,9 +28,17 @@ impl TeamWLPalindrome {
         // correct game start as a schedule would show.
         let game_start = (start + 1) as u8;
         let game_end = end as u8;
-        let wins = 0;
-        let losses = 0;
-        let ties = 0;
+        let mut wins = 0;
+        let mut losses = 0;
+        let mut ties = 0;
+        for game in palindrome.chars() {
+            match game {
+                'W' => { wins += 1 }
+                'L' => { losses += 1 }
+                'T' => { ties += 1 }
+                _ => {}
+            }
+        }
 
         Self {
             year,
@@ -52,8 +60,8 @@ impl TeamWLPalindrome {
 
 impl fmt::Display for TeamWLPalindrome {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(formatter, "{}: {}: {} {}-{}: {}", self.year, self.team, self.length,
-            self.game_start, self.game_end, self.palindrome)
+        write!(formatter, "{}: {}: {} {}-{}: {} ({}-{}-{})", self.year, self.team, self.length,
+            self.game_start, self.game_end, self.palindrome, self.wins, self.losses, self.ties)
     }
 }
 
