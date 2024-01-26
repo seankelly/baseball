@@ -37,12 +37,20 @@ fn parse_gamelog(gamelog: &Path) -> Result<Vec<(u16, String, String)>, Box<dyn E
         }
 
         let teamid = game.home_team;
-        let team = team_games.entry(teamid.clone()).or_insert_with(|| Vec::with_capacity(162));
-        team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
+        if !team_games.contains_key(&teamid) {
+            team_games.insert(teamid.clone(), Vec::with_capacity(162));
+        }
+        if let Some(team) = team_games.get_mut(&teamid) {
+            team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
+        }
 
         let teamid = game.visitor_team;
-        let team = team_games.entry(teamid.clone()).or_insert_with(|| Vec::with_capacity(162));
-        team.push((game.visitor_team_game_number, team_game_result(game.visitor_score, game.home_score)));
+        if !team_games.contains_key(&teamid) {
+            team_games.insert(teamid.clone(), Vec::with_capacity(162));
+        }
+        if let Some(team) = team_games.get_mut(&teamid) {
+            team.push((game.visitor_team_game_number, team_game_result(game.visitor_score, game.home_score)));
+        }
     }
 
     let mut team_seasons = Vec::with_capacity(team_games.len());
