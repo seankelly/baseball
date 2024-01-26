@@ -205,8 +205,12 @@ fn run() {
         for game_log_path in game_logs {
             match parse_gamelog(Path::new(game_log_path)) {
                 Ok(team_seasons) => {
+                    let mut palindromes = Vec::new();
                     for (season, team, record) in &team_seasons {
-                        let palindrome = TeamWLPalindrome::from_team_season(*season, team, record);
+                        palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
+                    }
+                    palindromes.sort_by_key(|k| k.len());
+                    for palindrome in palindromes.iter().rev() {
                         println!("{}", palindrome);
                     }
                 }
