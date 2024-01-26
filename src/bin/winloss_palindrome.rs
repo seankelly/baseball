@@ -60,8 +60,9 @@ impl TeamWLPalindrome {
 
 impl fmt::Display for TeamWLPalindrome {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(formatter, "{}: {}: {} {}-{}: {} ({}-{}-{})", self.year, self.team, self.length,
-            self.game_start, self.game_end, self.palindrome, self.wins, self.losses, self.ties)
+        let game_range = format!("{}-{}", self.game_start, self.game_end);
+        write!(formatter, "{}: {}: {} ({: >7}): {} ({}-{}-{})", self.year, self.team, self.length,
+            game_range, self.palindrome, self.wins, self.losses, self.ties)
     }
 }
 
