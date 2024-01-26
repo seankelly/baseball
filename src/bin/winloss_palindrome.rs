@@ -109,7 +109,7 @@ fn parse_gamelog(gamelog: &Path) -> Result<Vec<(u16, String, String)>, Box<dyn E
     let mut team_seasons = Vec::with_capacity(team_games.len());
     for (team, team_results) in team_games.iter_mut() {
         // Ensure each team's games for the season are in order.
-        team_results.sort_unstable();
+        team_results.sort_by_key(|k| k.0);
         let mut team_record = String::with_capacity(team_results.len());
         for (_, result) in team_results {
             team_record.push_str(&result);
