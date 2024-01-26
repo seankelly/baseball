@@ -1,8 +1,61 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
+use std::fmt;
 
 use clap::{Arg, App};
+
+
+struct TeamWLPalindrome {
+    year: u16,
+    team: String,
+    length: u8,
+    palindrome: String,
+    game_start: u8,
+    game_end: u8,
+    wins: u8,
+    losses: u8,
+    ties: u8,
+}
+
+impl TeamWLPalindrome {
+    fn from_team_season(year: u16, team: &String, team_record: &String) -> Self {
+        let (start, end) = find_longest_palindrome(&team_record);
+        let length = (end - start) as u8;
+        let team = team.clone();
+        let palindrome = String::from(&team_record[start..end]);
+        // Strings are zero-indexed but games are one-indexed. Increment by one to return the
+        // correct game start as a schedule would show.
+        let game_start = (start + 1) as u8;
+        let game_end = end as u8;
+        let wins = 0;
+        let losses = 0;
+        let ties = 0;
+
+        Self {
+            year,
+            team,
+            length,
+            palindrome,
+            game_start,
+            game_end,
+            wins,
+            losses,
+            ties,
+        }
+    }
+
+    fn len(&self) -> u8 {
+        self.length
+    }
+}
+
+impl fmt::Display for TeamWLPalindrome {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(formatter, "{}: {}: {} {}-{}: {}", self.year, self.team, self.length,
+            self.game_start, self.game_end, self.palindrome)
+    }
+}
 
 
 fn team_game_result(score: u16, other_score: u16) -> String {
@@ -153,10 +206,8 @@ fn run() {
             match parse_gamelog(Path::new(game_log_path)) {
                 Ok(team_seasons) => {
                     for (season, team, record) in &team_seasons {
-                        let (start, end) = find_longest_palindrome(&record);
-                        let length = end - start + 1;
-                        let palindrome = &record[start..end];
-                        println!("{}: {}: {} {}-{}: {}", season, team, length, start+1, end, palindrome);
+                        let palindrome = TeamWLPalindrome::from_team_season(*season, team, record);
+                        println!("{}", palindrome);
                     }
                 }
                 Err(e) => {
