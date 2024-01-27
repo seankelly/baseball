@@ -88,31 +88,33 @@ fn parse_gamelog(gamelog: &Path) -> Result<Vec<(u16, String, String)>, Box<dyn E
         .has_headers(false)
         .from_path(&gamelog)?;
     for result in reader.deserialize() {
-        let game: retrosheet::game::GameLog = result?;
-        if season == 0 {
-            let (year, _) = game.date.split_at(4);
-            season = match year.parse::<u16>() {
-                Ok(n) => n,
-                Err(_) => {
-                    0
-                },
-            };
-        }
+        if let Ok(game) = result {
+            let game: retrosheet::game::GameLog = game;
+            if season == 0 {
+                let (year, _) = game.date.split_at(4);
+                season = match year.parse::<u16>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        0
+                    },
+                };
+            }
 
-        let teamid = game.home_team;
-        if !team_games.contains_key(&teamid) {
-            team_games.insert(teamid.clone(), Vec::with_capacity(162));
-        }
-        if let Some(team) = team_games.get_mut(&teamid) {
-            team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
-        }
+            let teamid = game.home_team;
+            if !team_games.contains_key(&teamid) {
+                team_games.insert(teamid.clone(), Vec::with_capacity(162));
+            }
+            if let Some(team) = team_games.get_mut(&teamid) {
+                team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
+            }
 
-        let teamid = game.visitor_team;
-        if !team_games.contains_key(&teamid) {
-            team_games.insert(teamid.clone(), Vec::with_capacity(162));
-        }
-        if let Some(team) = team_games.get_mut(&teamid) {
-            team.push((game.visitor_team_game_number, team_game_result(game.visitor_score, game.home_score)));
+            let teamid = game.visitor_team;
+            if !team_games.contains_key(&teamid) {
+                team_games.insert(teamid.clone(), Vec::with_capacity(162));
+            }
+            if let Some(team) = team_games.get_mut(&teamid) {
+                team.push((game.visitor_team_game_number, team_game_result(game.visitor_score, game.home_score)));
+            }
         }
     }
 
