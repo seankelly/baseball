@@ -3,9 +3,22 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
+use std::path;
 
-use clap::{Arg, App};
+use clap::Parser;
 
+
+const PALINDROME_LIMIT: usize = 100;
+
+
+#[derive(Parser)]
+struct Args {
+    #[arg(short = 'n', long = "limit")]
+    limit: Option<usize>,
+
+    #[arg(value_name = "FILE")]
+    game_logs: Vec<path::PathBuf>,
+}
 
 struct TeamWLPalindrome {
     year: u16,
@@ -204,32 +217,25 @@ fn find_longest_palindrome(string: &str) -> (usize, usize) {
 }
 
 fn run() {
-    let matches = App::new("Team win/loss palindrome")
-        .about("Find longest win/loss/tie palindromes.")
-        .arg(Arg::with_name("game-log")
-             .value_name("FILE")
-             .help("Retrosheet game log file(s)")
-             .multiple(true))
-        .get_matches();
+    let args = Args::parse();
 
-    if let Some(game_logs) = matches.values_of("game-log") {
-        let mut palindromes = Vec::new();
-        for game_log_path in game_logs {
-            match parse_gamelog(Path::new(game_log_path)) {
-                Ok(team_seasons) => {
-                    for (season, team, record) in &team_seasons {
-                        palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
-                    }
-                }
-                Err(e) => {
-                    println!("failure: {}", e);
+    let mut palindromes = Vec::new();
+    for game_log_path in &args.game_logs {
+        match parse_gamelog(game_log_path) {
+            Ok(team_seasons) => {
+                for (season, team, record) in &team_seasons {
+                    palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
                 }
             }
+            Err(e) => {
+                println!("failure reading {}: {}", game_log_path.display(), e);
+            }
         }
-        palindromes.sort_by_key(|k| Reverse(k.len()));
-        for palindrome in palindromes.iter().take(50) {
-            println!("{}", palindrome);
-        }
+    }
+    palindromes.sort_by_key(|k| Reverse(k.len()));
+    let limit = args.limit.unwrap_or(PALINDROME_LIMIT);
+    for palindrome in palindromes.iter().take(limit) {
+        println!("{}", palindrome);
     }
 
 }

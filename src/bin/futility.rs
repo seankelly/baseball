@@ -6,9 +6,10 @@ use std::collections::HashMap;
 use std::ops::Sub;
 use std::path::Path;
 
-use clap::{Arg, App};
+use clap::{command, Arg, ArgAction};
 
 use retrosheet::chadwick;
+
 
 enum GameResult {
     Win,
@@ -162,24 +163,26 @@ fn process_seasons(teams: HashMap<String, BTreeMap<u16, SeasonResults>>) -> Hash
 }
 
 fn run() {
-    let matches = App::new("Team Futility")
+    let matches = command!()
         .about("Find stetches of team futility against another team.")
-        .arg(Arg::with_name("game-log")
+        .arg(Arg::new("game-log")
              .value_name("FILE")
              .help("Retrosheet game log file(s)")
-             .multiple(true))
+             .action(ArgAction::Append))
         .get_matches();
 
-    if let Some(game_logs) = matches.values_of("game-log") {
-        let mut games = Vec::new();
-        for game_log_path in game_logs {
-            let season_games = chadwick::load_file(Path::new(game_log_path));
-            games.extend(season_games);
-        }
-        let teams = process_games(games);
-        process_seasons(teams);
-    }
+    let game_logs = matches.get_many::<String>("game-log")
+        .unwrap_or_default()
+        .map(|g| g.as_str())
+        .collect::<Vec<_>>();
 
+    let mut games = Vec::new();
+    for game_log_path in game_logs {
+        let season_games = chadwick::load_file(Path::new(game_log_path));
+        games.extend(season_games);
+    }
+    let teams = process_games(games);
+    process_seasons(teams);
 }
 
 fn main() {
