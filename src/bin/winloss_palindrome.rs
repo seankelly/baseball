@@ -1,7 +1,8 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::Path;
 use std::fmt;
+use std::path::Path;
 
 use clap::{Arg, App};
 
@@ -210,23 +211,22 @@ fn run() {
         .get_matches();
 
     if let Some(game_logs) = matches.values_of("game-log") {
-        //let mut games = Vec::new();
+        let mut palindromes = Vec::new();
         for game_log_path in game_logs {
             match parse_gamelog(Path::new(game_log_path)) {
                 Ok(team_seasons) => {
-                    let mut palindromes = Vec::new();
                     for (season, team, record) in &team_seasons {
                         palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
-                    }
-                    palindromes.sort_by_key(|k| k.len());
-                    for palindrome in palindromes.iter().rev() {
-                        println!("{}", palindrome);
                     }
                 }
                 Err(e) => {
                     println!("failure: {}", e);
                 }
             }
+        }
+        palindromes.sort_by_key(|k| Reverse(k.len()));
+        for palindrome in palindromes.iter().take(50) {
+            println!("{}", palindrome);
         }
     }
 
