@@ -234,11 +234,16 @@ fn find_longest_palindrome(string: &str) -> (usize, usize) {
 /// Prune the list of palindromes to a limit while allowing to go over the limit to keep any ties.
 fn prune(palindromes: &mut Vec<TeamWLPalindrome>, limit: usize) {
     palindromes.sort_by_key(|k| Reverse(k.len()));
-    if palindromes.len() < limit {
+    // There's a default limit so if the limit is zero then don't prune at all.
+    if limit == 0 {
+        return;
+    }
+    let last_index = limit - 1;
+    if palindromes.len() < last_index {
         return;
     }
 
-    let limit_length = palindromes[limit].len();
+    let limit_length = palindromes[last_index].len();
     palindromes.retain(|p| p.len() >= limit_length);
 }
 
