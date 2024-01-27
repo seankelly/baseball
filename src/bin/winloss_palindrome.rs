@@ -5,6 +5,7 @@ use std::fmt;
 use std::path;
 
 use clap::Parser;
+use rayon::prelude::*;
 
 
 const PALINDROME_LIMIT: usize = 100;
@@ -90,6 +91,21 @@ fn team_game_result(score: u16, other_score: u16) -> String {
     else {
         "T".to_string()
     }
+}
+
+fn process_gamelog(game_log_path: &path::Path) -> Vec<TeamWLPalindrome> {
+    let mut palindromes = Vec::new();
+    match parse_gamelog(game_log_path) {
+        Ok(team_seasons) => {
+            for (season, team, record) in &team_seasons {
+                palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
+            }
+        }
+        Err(e) => {
+            println!("failure reading {}: {}", game_log_path.display(), e);
+        }
+    }
+    return palindromes;
 }
 
 fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box<dyn Error>> {
@@ -229,21 +245,11 @@ fn prune(palindromes: &mut Vec<TeamWLPalindrome>, limit: usize) {
 fn run() {
     let args = Args::parse();
 
-    let mut palindromes = Vec::new();
     let limit = args.limit.unwrap_or(PALINDROME_LIMIT);
-    for game_log_path in &args.game_logs {
-        match parse_gamelog(game_log_path) {
-            Ok(team_seasons) => {
-                for (season, team, record) in &team_seasons {
-                    palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
-                }
-                prune(&mut palindromes, limit);
-            }
-            Err(e) => {
-                println!("failure reading {}: {}", game_log_path.display(), e);
-            }
-        }
-    }
+    let mut palindromes = args.game_logs.par_iter()
+        .flat_map(|game_log| process_gamelog(game_log))
+        .collect();
+    prune(&mut palindromes, limit);
     for palindrome in &palindromes {
         println!("{}", palindrome);
     }
