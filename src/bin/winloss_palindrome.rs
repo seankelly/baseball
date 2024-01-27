@@ -215,25 +215,36 @@ fn find_longest_palindrome(string: &str) -> (usize, usize) {
     return (start, end);
 }
 
+/// Prune the list of palindromes to a limit while allowing to go over the limit to keep any ties.
+fn prune(palindromes: &mut Vec<TeamWLPalindrome>, limit: usize) {
+    palindromes.sort_by_key(|k| Reverse(k.len()));
+    if palindromes.len() < limit {
+        return;
+    }
+
+    let limit_length = palindromes[limit].len();
+    palindromes.retain(|p| p.len() >= limit_length);
+}
+
 fn run() {
     let args = Args::parse();
 
     let mut palindromes = Vec::new();
+    let limit = args.limit.unwrap_or(PALINDROME_LIMIT);
     for game_log_path in &args.game_logs {
         match parse_gamelog(game_log_path) {
             Ok(team_seasons) => {
                 for (season, team, record) in &team_seasons {
                     palindromes.push(TeamWLPalindrome::from_team_season(*season, team, record));
                 }
+                prune(&mut palindromes, limit);
             }
             Err(e) => {
                 println!("failure reading {}: {}", game_log_path.display(), e);
             }
         }
     }
-    palindromes.sort_by_key(|k| Reverse(k.len()));
-    let limit = args.limit.unwrap_or(PALINDROME_LIMIT);
-    for palindrome in palindromes.iter().take(limit) {
+    for palindrome in &palindromes {
         println!("{}", palindrome);
     }
 
