@@ -10,3 +10,4 @@ csv = "1.0.0"
 serde = "1.0.43"
 serde_derive = "1.0.43"
 retrosheet = { path = "retrosheet" }
+rayon = "1.8.1"
