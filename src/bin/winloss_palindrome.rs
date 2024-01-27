@@ -2,7 +2,6 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
-use std::path::Path;
 use std::path;
 
 use clap::Parser;
@@ -93,7 +92,7 @@ fn team_game_result(score: u16, other_score: u16) -> String {
     }
 }
 
-fn parse_gamelog(gamelog: &Path) -> Result<Vec<(u16, String, String)>, Box<dyn Error>> {
+fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box<dyn Error>> {
     let mut team_games = HashMap::with_capacity(30);
     let mut season = 0;
 
