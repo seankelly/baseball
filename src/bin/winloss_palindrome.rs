@@ -16,10 +16,14 @@ struct Args {
     #[arg(short = 'n', long = "limit")]
     limit: Option<usize>,
 
+    #[arg(long = "csv")]
+    csv_file: Option<path::PathBuf>,
+
     #[arg(value_name = "FILE")]
     game_logs: Vec<path::PathBuf>,
 }
 
+#[derive(serde::Serialize)]
 struct TeamWLPalindrome {
     year: u16,
     team: String,
@@ -247,7 +251,17 @@ fn prune(palindromes: &mut Vec<TeamWLPalindrome>, limit: usize) {
     palindromes.retain(|p| p.len() >= limit_length);
 }
 
-fn run() {
+fn dump_csv(palindromes: &Vec<TeamWLPalindrome>, csv_file: &path::Path) -> Result<(), Box<dyn Error>> {
+    let mut writer = csv::WriterBuilder::new()
+        .has_headers(true)
+        .from_path(&csv_file)?;
+    for palindrome in palindromes {
+        writer.serialize(palindrome)?;
+    }
+    Ok(())
+}
+
+fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let limit = args.limit.unwrap_or(PALINDROME_LIMIT);
@@ -255,12 +269,18 @@ fn run() {
         .flat_map(|game_log| process_gamelog(game_log))
         .collect();
     prune(&mut palindromes, limit);
-    for palindrome in &palindromes {
-        println!("{}", palindrome);
-    }
 
+    if let Some(csv_file) = args.csv_file {
+        dump_csv(&palindromes, &csv_file)?;
+    }
+    else {
+        for palindrome in &palindromes {
+            println!("{}", palindrome);
+        }
+    }
+    Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     run()
 }

@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "~4.4", features = ["derive", "cargo"] }
 csv = "1.0.0"
-serde = "1.0.43"
+serde = { version = "1.0.43", features = ["derive"] }
 serde_derive = "1.0.43"
 retrosheet = { path = "retrosheet" }
 rayon = "1.8.1"
