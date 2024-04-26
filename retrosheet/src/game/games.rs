@@ -20,7 +20,7 @@ pub struct GameLog {
     pub forfeit_info: String,
     pub protest_info: String,
     pub park_id: String,
-    pub attendance: Option<u32>,
+    pub attendance: Option<i32>,
     pub time_of_game: Option<u16>,
     // 20
     pub visitor_line_score: String,
@@ -203,7 +203,7 @@ pub struct TeamGameLog {
     pub forfeit_info: String,
     pub protest_info: String,
     pub park_id: String,
-    pub attendance: Option<u32>,
+    pub attendance: Option<i32>,
     pub time_of_game: Option<u16>,
     // 20
     pub line_score: String,
