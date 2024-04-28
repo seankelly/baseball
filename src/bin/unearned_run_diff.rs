@@ -40,6 +40,11 @@ struct GameEarnedRunDiff {
     away_er: u8,
 }
 
+enum UnearnedRunMode {
+    Team,
+    Game,
+}
+
 impl GameEarnedRunDiff {
     /// Return the total number of unearned runs in the game from both teams.
     fn total_diff(&self) -> u8 {
@@ -138,8 +143,12 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<GameEarnedRunDiff>, Box<dyn
     return Ok(games);
 }
 
-fn prune(games: &mut Vec<GameEarnedRunDiff>, limit: usize) {
-    games.sort_by_key(|k| Reverse(k.total_diff()));
+fn prune(games: &mut Vec<GameEarnedRunDiff>, limit: usize, search_mode: UnearnedRunMode) {
+    let sort_fn = match search_mode {
+        UnearnedRunMode::Team => |g: &GameEarnedRunDiff| Reverse(g.total_diff()),
+        UnearnedRunMode::Game => |g: &GameEarnedRunDiff| Reverse(g.team_diff()),
+    };
+    games.sort_by_key(sort_fn);
     // There's a default limit so if the limit is zero then don't prune at all.
     if limit == 0 {
         return;
@@ -149,8 +158,16 @@ fn prune(games: &mut Vec<GameEarnedRunDiff>, limit: usize) {
         return;
     }
 
-    let limit_length = games[last_index].total_diff();
-    games.retain(|p| p.total_diff() >= limit_length);
+    match search_mode {
+        UnearnedRunMode::Team => {
+            let limit_minimum = games[last_index].total_diff();
+            games.retain(|g: &GameEarnedRunDiff| g.total_diff() >= limit_minimum);
+        },
+        UnearnedRunMode::Game => {
+            let limit_minimum = games[last_index].team_diff();
+            games.retain(|g: &GameEarnedRunDiff| g.team_diff() >= limit_minimum);
+        }
+    }
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
@@ -158,11 +175,20 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let team = args.team;
     let game = args.game;
+    let search_mode = match (team, game) {
+        (false, false) => UnearnedRunMode::Team,
+        (true, false) => UnearnedRunMode::Team,
+        (false, true) => UnearnedRunMode::Game,
+        (true, true) => {
+            eprintln!("Team and game modes selected, picking only team");
+            UnearnedRunMode::Team
+        }
+    };
     let limit = args.limit.unwrap_or(OUTPUT_LIMIT);
     let mut games = args.game_logs.par_iter()
         .flat_map(|game_log| process_gamelog(game_log))
         .collect();
-    prune(&mut games, limit);
+    prune(&mut games, limit, search_mode);
 
     if let Some(csv_file) = args.csv_file {
         //dump_csv(&palindromes, &csv_file)?;
