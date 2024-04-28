@@ -33,26 +33,26 @@ struct GameEarnedRunDiff {
     year: u16,
     date: String,
     home_team: String,
-    home_r: u16,
+    home_r: u8,
     home_er: u8,
     away_team: String,
-    away_r: u16,
+    away_r: u8,
     away_er: u8,
 }
 
 impl GameEarnedRunDiff {
     /// Return the total number of unearned runs in the game from both teams.
     fn total_diff(&self) -> u8 {
-        //let home_diff = self.home_r - self.home_er as u16;
-        let home_diff = if self.home_r >= self.home_er as u16 {
-            self.home_r - self.home_er as u16
+        //let home_diff = self.home_r - self.home_er;
+        let home_diff = if self.home_r >= self.home_er {
+            self.home_r - self.home_er
         }
         else {
             100
         };
-        //let away_diff = self.away_r - self.away_er as u16;
-        let away_diff = if self.away_r >= self.away_er as u16 {
-            self.away_r - self.away_er as u16
+        //let away_diff = self.away_r - self.away_er;
+        let away_diff = if self.away_r >= self.away_er {
+            self.away_r - self.away_er
         }
         else {
             100
@@ -62,8 +62,8 @@ impl GameEarnedRunDiff {
 
     /// Return the highest unearned run difference of both teams.
     fn team_diff(&self) -> u8 {
-        let home_diff = self.home_r - self.home_er as u16;
-        let away_diff = self.away_r - self.away_er as u16;
+        let home_diff = self.home_r - self.home_er;
+        let away_diff = self.away_r - self.away_er;
         if home_diff > away_diff {
             home_diff as u8
         }
@@ -75,16 +75,16 @@ impl GameEarnedRunDiff {
 
 impl fmt::Display for GameEarnedRunDiff {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let home_diff = if self.home_r >= self.home_er as u16 {
-            self.home_r - self.home_er as u16
+        let home_diff = if self.home_r >= self.home_er {
+            self.home_r - self.home_er
         }
         else {
             100
         };
-        //let home_diff = self.home_r - self.home_er as u16;
-        //let away_diff = self.away_r - self.away_er as u16;
-        let away_diff = if self.away_r >= self.away_er as u16 {
-            self.away_r - self.away_er as u16
+        //let home_diff = self.home_r - self.home_er;
+        //let away_diff = self.away_r - self.away_er;
+        let away_diff = if self.away_r >= self.away_er {
+            self.away_r - self.away_er
         }
         else {
             100

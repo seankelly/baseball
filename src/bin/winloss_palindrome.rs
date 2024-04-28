@@ -85,7 +85,7 @@ impl fmt::Display for TeamWLPalindrome {
 }
 
 
-fn team_game_result(score: u16, other_score: u16) -> String {
+fn team_game_result(score: u8, other_score: u8) -> String {
     if score > other_score {
         "W".to_string()
     }

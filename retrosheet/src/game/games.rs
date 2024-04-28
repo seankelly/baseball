@@ -12,8 +12,8 @@ pub struct GameLog {
     pub home_league: String,
     pub home_team_game_number: u16,
     // 10
-    pub visitor_score: u16,
-    pub home_score: u16,
+    pub visitor_score: u8,
+    pub home_score: u8,
     pub number_of_outs: Option<u8>,
     pub day_night: String,
     pub completion_info: String,
@@ -195,8 +195,8 @@ pub struct TeamGameLog {
     pub opponent_league: String,
     pub opponent_team_game_number: u16,
     // 10
-    pub score: u16,
-    pub opponent_score: u16,
+    pub score: u8,
+    pub opponent_score: u8,
     pub number_of_outs: Option<u8>,
     pub day_night: String,
     pub completion_info: String,
