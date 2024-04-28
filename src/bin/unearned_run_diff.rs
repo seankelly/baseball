@@ -43,21 +43,9 @@ struct GameEarnedRunDiff {
 impl GameEarnedRunDiff {
     /// Return the total number of unearned runs in the game from both teams.
     fn total_diff(&self) -> u8 {
-        //let home_diff = self.home_r - self.home_er;
-        let home_diff = if self.home_r >= self.home_er {
-            self.home_r - self.home_er
-        }
-        else {
-            100
-        };
-        //let away_diff = self.away_r - self.away_er;
-        let away_diff = if self.away_r >= self.away_er {
-            self.away_r - self.away_er
-        }
-        else {
-            100
-        };
-        home_diff as u8 + away_diff as u8
+        let home_diff = self.home_r - self.home_er;
+        let away_diff = self.away_r - self.away_er;
+        home_diff + away_diff
     }
 
     /// Return the highest unearned run difference of both teams.
@@ -65,30 +53,18 @@ impl GameEarnedRunDiff {
         let home_diff = self.home_r - self.home_er;
         let away_diff = self.away_r - self.away_er;
         if home_diff > away_diff {
-            home_diff as u8
+            home_diff
         }
         else {
-            away_diff as u8
+            away_diff
         }
     }
 }
 
 impl fmt::Display for GameEarnedRunDiff {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let home_diff = if self.home_r >= self.home_er {
-            self.home_r - self.home_er
-        }
-        else {
-            100
-        };
-        //let home_diff = self.home_r - self.home_er;
-        //let away_diff = self.away_r - self.away_er;
-        let away_diff = if self.away_r >= self.away_er {
-            self.away_r - self.away_er
-        }
-        else {
-            100
-        };
+        let home_diff = self.home_r - self.home_er;
+        let away_diff = self.away_r - self.away_er;
         let total_diff = home_diff + away_diff;
         write!(formatter, "{}: total: {}, home ({}): {}, away ({}): {}", self.date, total_diff, self.home_team, home_diff, self.away_team, away_diff)
     }
@@ -127,12 +103,24 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<GameEarnedRunDiff>, Box<dyn
                 };
             }
 
+            if game.home_individual_earned_runs.is_none() {
+                continue;
+            }
+            if game.visitor_individual_earned_runs.is_none() {
+                continue;
+            }
+            let home_er = game.home_individual_earned_runs.unwrap();
+            let away_er = game.visitor_individual_earned_runs.unwrap();
+
             let home_team = game.home_team;
             let away_team = game.visitor_team;
             let home_r = game.visitor_score;
-            let home_er = game.home_individual_earned_runs.unwrap_or(home_r as u8);
             let away_r = game.home_score;
-            let away_er = game.visitor_individual_earned_runs.unwrap_or(away_r as u8);
+            if home_er > home_r || away_er > away_r {
+                println!("More earned runs than runs found on {} for {} vs {}", game.date,
+                    away_team, home_team);
+                continue;
+            }
             let game_diff = GameEarnedRunDiff {
                 year: season,
                 date: game.date.clone(),
