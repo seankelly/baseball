@@ -119,9 +119,10 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)
         .from_path(&gamelog)?;
-    for result in reader.deserialize() {
-        if let Ok(game) = result {
-            let game: retrosheet::game::GameLog = game;
+    let mut raw_record = csv::StringRecord::new();
+    while reader.read_record(&mut raw_record)? {
+        if let Ok(game) = raw_record.deserialize(None) {
+            let game: retrosheet::game::GameLogRow = game;
             if season == 0 {
                 let (year, _) = game.date.split_at(4);
                 season = match year.parse::<u16>() {
@@ -132,7 +133,7 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
                 };
             }
 
-            let teamid = game.home_team;
+            let teamid = game.home_team.to_owned();
             if !team_games.contains_key(&teamid) {
                 team_games.insert(teamid.clone(), Vec::with_capacity(162));
             }
@@ -140,7 +141,7 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
                 team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
             }
 
-            let teamid = game.visitor_team;
+            let teamid = game.visitor_team.to_owned();
             if !team_games.contains_key(&teamid) {
                 team_games.insert(teamid.clone(), Vec::with_capacity(162));
             }
