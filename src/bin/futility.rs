@@ -1,14 +1,24 @@
-#[macro_use]
-extern crate serde_derive;
-
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ops::Sub;
-use std::path::Path;
+use std::path;
 
-use clap::{command, Arg, ArgAction};
+use clap::Parser;
 
 use retrosheet::chadwick;
+
+
+#[derive(Parser)]
+struct Args {
+    #[arg(short = 'n', long = "limit")]
+    limit: Option<usize>,
+
+    #[arg(long = "csv")]
+    csv_file: Option<path::PathBuf>,
+
+    #[arg(value_name = "FILE")]
+    game_logs: Vec<path::PathBuf>,
+}
 
 
 enum GameResult {
@@ -17,7 +27,7 @@ enum GameResult {
     Tie,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 struct SeasonSummary {
     wins: u8,
     losses: u8,
@@ -163,22 +173,11 @@ fn process_seasons(teams: HashMap<String, BTreeMap<u16, SeasonResults>>) -> Hash
 }
 
 fn run() {
-    let matches = command!()
-        .about("Find stetches of team futility against another team.")
-        .arg(Arg::new("game-log")
-             .value_name("FILE")
-             .help("Retrosheet game log file(s)")
-             .action(ArgAction::Append))
-        .get_matches();
-
-    let game_logs = matches.get_many::<String>("game-log")
-        .unwrap_or_default()
-        .map(|g| g.as_str())
-        .collect::<Vec<_>>();
+    let args = Args::parse();
 
     let mut games = Vec::new();
-    for game_log_path in game_logs {
-        let season_games = chadwick::load_file(Path::new(game_log_path));
+    for game_log_path in args.game_logs {
+        let season_games = chadwick::load_file(&game_log_path);
         games.extend(season_games);
     }
     let teams = process_games(games);
