@@ -24,6 +24,9 @@ struct Args {
     #[arg(long, value_name = "PROGRAM")]
     filter: Option<String>,
 
+    #[arg(long, value_name = "PROGRAM")]
+    sort_key: Option<String>,
+
     #[arg(long = "csv")]
     csv_file: Option<path::PathBuf>,
 
@@ -174,6 +177,7 @@ fn parse_career(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, Pitch
     return career;
 }
 
+
 fn filter_option(career: &PitchingCareer, context: &Context, program: &Program) -> bool {
     let mut player_ctx = context.new_inner_scope();
     if let Err(_) = career.add_cel_variables(&mut player_ctx) {
@@ -190,6 +194,23 @@ fn filter_option(career: &PitchingCareer, context: &Context, program: &Program) 
 }
 
 
+fn sort_key(career: &PitchingCareer, context: &Context, program: &Program) -> f64 {
+    let mut player_ctx = context.new_inner_scope();
+    if let Err(_) = career.add_cel_variables(&mut player_ctx) {
+        return f64::NEG_INFINITY;
+    }
+
+    let result = program.execute(&player_ctx);
+    let f_result = match result {
+        Ok(Value::Int(i)) => { i as f64 }
+        Ok(Value::UInt(u)) => { u as f64 }
+        Ok(Value::Float(f)) => { f }
+        _ => f64::INFINITY
+    };
+    f_result
+}
+
+
 fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
@@ -199,7 +220,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         let careers_map = parse_career(&seasons);
         let context = Context::default();
 
-        let careers: Vec<&PitchingCareer> = match args.filter {
+        let mut careers: Vec<&PitchingCareer> = match args.filter {
             Some(filter_prog) => {
                 let program = Program::compile(&filter_prog)?;
                 careers_map.values().filter(|career| filter_option(career, &context, &program) ).collect()
@@ -208,6 +229,15 @@ fn run() -> Result<(), Box<dyn Error>> {
                 careers_map.values().collect()
             }
         };
+
+        if let Some(sort_prog) = args.sort_key {
+            let program = Program::compile(&sort_prog)?;
+            careers.sort_unstable_by(|a, b| {
+                let a_res = sort_key(a, &context, &program);
+                let b_res = sort_key(b, &context, &program);
+                a_res.total_cmp(&b_res)
+            });
+        }
 
         println!("found {} matches", careers.len());
 
