@@ -51,6 +51,7 @@ struct PitchingCareer {
     home_runs: u16,
     walks: u16,
     strikeouts: u16,
+    era: f32,
     intentional_walks: u16,
     wild_pitches: u16,
     hit_by_pitches: u16,
@@ -109,6 +110,10 @@ impl PitchingCareer {
         self.sacrifice_flies += season_sacrifice_flies;
         let season_gidp: u16 = season.gidp.unwrap_or(0).into();
         self.gidp += season_gidp;
+
+        let er = self.earned_runs as f32;
+        let ipouts = self.ip_outs as f32;
+        self.era = er * 27.0 / ipouts;
     }
 
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
@@ -125,6 +130,7 @@ impl PitchingCareer {
         context.add_variable("HR", self.home_runs)?;
         context.add_variable("BB", self.walks)?;
         context.add_variable("SO", self.strikeouts)?;
+        context.add_variable("ERA", self.era)?;
         context.add_variable("IBB", self.intentional_walks)?;
         context.add_variable("WP", self.wild_pitches)?;
         context.add_variable("HBP", self.hit_by_pitches)?;
