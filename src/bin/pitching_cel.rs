@@ -265,8 +265,13 @@ fn run() -> Result<(), Box<dyn Error>> {
         println!("found {} matches", careers.len());
 
         let mut wtr = Writer::from_writer(vec![]);
-        for career in &careers {
+        for (i, career) in careers.iter().enumerate() {
             wtr.serialize(career)?;
+            if let Some(limit) = args.limit {
+                if (i + 1) >= limit {
+                    break;
+                }
+            }
         }
         print!("{}", String::from_utf8(wtr.into_inner()?)?);
     }
