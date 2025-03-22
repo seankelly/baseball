@@ -6,7 +6,7 @@ use std::path;
 use baseball::lahman;
 
 use cel_interpreter::{Context, Program, Value};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use csv::Writer;
 
 
@@ -26,6 +26,9 @@ struct Args {
 
     #[arg(long, value_name = "PROGRAM")]
     sort_key: Option<String>,
+
+    #[arg(long, value_name = "ORDER")]
+    sort_order: Option<SortOrder>,
 
     #[arg(long = "csv")]
     csv_file: Option<path::PathBuf>,
@@ -63,6 +66,14 @@ struct PitchingCareer {
     sacrifice_flies: u16,
     gidp: u16,
 }
+
+
+#[derive(Clone, ValueEnum)]
+enum SortOrder {
+    Asc,
+    Desc,
+}
+
 
 impl PitchingCareer {
     fn add_season(&mut self, season: &lahman::pitching::Pitching) {
@@ -224,7 +235,9 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     if args.career {
         let careers_map = parse_career(&seasons);
-        let context = Context::default();
+        let mut context = Context::default();
+
+        context.add_function("abs", |a: f64| a.abs());
 
         let mut careers: Vec<&PitchingCareer> = match args.filter {
             Some(filter_prog) => {
@@ -238,10 +251,14 @@ fn run() -> Result<(), Box<dyn Error>> {
 
         if let Some(sort_prog) = args.sort_key {
             let program = Program::compile(&sort_prog)?;
+            let sort_order = args.sort_order.unwrap_or(SortOrder::Asc);
             careers.sort_unstable_by(|a, b| {
                 let a_res = sort_key(a, &context, &program);
                 let b_res = sort_key(b, &context, &program);
-                a_res.total_cmp(&b_res)
+                match sort_order {
+                    SortOrder::Asc => { a_res.total_cmp(&b_res) }
+                    SortOrder::Desc => { b_res.total_cmp(&a_res) }
+                }
             });
         }
 
