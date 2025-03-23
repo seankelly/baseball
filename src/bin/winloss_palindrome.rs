@@ -122,7 +122,7 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
     let mut raw_record = csv::StringRecord::new();
     while reader.read_record(&mut raw_record)? {
         if let Ok(game) = raw_record.deserialize(None) {
-            let game: retrosheet::game::GameLogRow = game;
+            let game: baseball::retrosheet::game::GameLogRow = game;
             if season == 0 {
                 let (year, _) = game.date.split_at(4);
                 season = match year.parse::<u16>() {

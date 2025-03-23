@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
-use retrosheet::transactions::Transaction;
+use baseball::transactions::Transaction;
 
 
 struct Trade {

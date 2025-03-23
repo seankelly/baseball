@@ -10,8 +10,8 @@ pub mod events;
 pub use events::Event;
 pub use events::EventExtended;
 pub use events::Handedness;
-pub use crate::game::GameLog;
-pub use crate::game::TeamGameLog;
+pub use crate::retrosheet::game::GameLog;
+pub use crate::retrosheet::game::TeamGameLog;
 
 
 pub struct ChadwickFileIter<T> {

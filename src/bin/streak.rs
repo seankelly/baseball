@@ -9,7 +9,7 @@ use std::path::Path;
 
 use csv::WriterBuilder;
 
-use retrosheet::chadwick;
+use baseball::chadwick;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Streak {

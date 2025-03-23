@@ -1,11 +1,11 @@
 [package]
-name = "baseball"
+name = "baseball_tools"
 version = "0.1.0"
 authors = ["Sean Kelly <code@katron.org>"]
 edition = "2021"
 
 [dependencies]
-retrosheet = { path = "retrosheet" }
+baseball = { path = "baseball" }
 cel-interpreter = "0.9.0"
 clap = { version = "~4.4", features = ["derive"] }
 csv = "1.0.0"

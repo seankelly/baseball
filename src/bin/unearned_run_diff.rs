@@ -97,7 +97,7 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<GameEarnedRunDiff>, Box<dyn
         .from_path(&gamelog)?;
     for result in reader.deserialize() {
         if let Ok(game) = result {
-            let game: retrosheet::game::GameLog = game;
+            let game: baseball::retrosheet::game::GameLog = game;
             if season == 0 {
                 let (year, _) = game.date.split_at(4);
                 season = match year.parse::<u16>() {

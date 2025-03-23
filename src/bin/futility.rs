@@ -5,7 +5,7 @@ use std::path;
 
 use clap::Parser;
 
-use retrosheet::chadwick;
+use baseball::chadwick;
 
 
 #[derive(Parser)]
