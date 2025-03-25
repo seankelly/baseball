@@ -92,8 +92,7 @@ impl PitchingCareer {
         self.saves += season_saves;
         let season_ip_outs: u16 = season.ip_outs.into();
         self.ip_outs += season_ip_outs;
-        let season_hits: u16 = season.hits.into();
-        self.hits += season_hits;
+        self.hits += season.hits;
         let season_earned_runs: u16 = season.earned_runs.into();
         self.earned_runs += season_earned_runs;
         let season_home_runs: u16 = season.home_runs.into();
@@ -106,11 +105,10 @@ impl PitchingCareer {
         self.intentional_walks += season_intentional_walks;
         let season_wild_pitches: u16 = season.wild_pitches.into();
         self.wild_pitches += season_wild_pitches;
-        let season_hit_by_pitches: u16 = season.hit_by_pitches.into();
+        let season_hit_by_pitches: u16 = season.hit_by_pitches.unwrap_or(0).into();
         self.hit_by_pitches += season_hit_by_pitches;
         self.balks += season.balks;
-        let season_batters_faced: u16 = season.batters_faced.into();
-        self.batters_faced += season_batters_faced;
+        self.batters_faced += season.batters_faced.unwrap_or(0);
         let season_games_finished: u16 = season.games_finished.into();
         self.games_finished += season_games_finished;
         let season_runs: u16 = season.runs.into();

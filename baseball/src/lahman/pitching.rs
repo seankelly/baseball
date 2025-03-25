@@ -29,7 +29,7 @@ pub struct Pitching {
     #[serde(rename = "H")]
     pub hits: u16,
     #[serde(rename = "ER")]
-    pub earned_runs: u8,
+    pub earned_runs: u16,
     #[serde(rename = "HR")]
     pub home_runs: u8,
     #[serde(rename = "BB")]
@@ -39,17 +39,17 @@ pub struct Pitching {
     #[serde(rename = "BAOpp")]
     pub ba_opp: Option<f32>,
     #[serde(rename = "ERA")]
-    pub era: f32,
+    pub era: Option<f32>,
     #[serde(rename = "IBB")]
     pub intentional_walks: Option<u8>,
     #[serde(rename = "WP")]
     pub wild_pitches: u8,
     #[serde(rename = "HBP")]
-    pub hit_by_pitches: u8,
+    pub hit_by_pitches: Option<u8>,
     #[serde(rename = "BK")]
     pub balks: u8,
     #[serde(rename = "BFP")]
-    pub batters_faced: u16,
+    pub batters_faced: Option<u16>,
     #[serde(rename = "GF")]
     pub games_finished: u8,
     #[serde(rename = "R")]
