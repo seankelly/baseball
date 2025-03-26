@@ -6,12 +6,13 @@ use std::path;
 use baseball::lahman;
 
 use cel_interpreter::{Context, Program, Value};
-use clap::{Parser, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use csv::Writer;
+use serde::de::DeserializeOwned;
 
 
 #[derive(Parser)]
-struct Args {
+struct LahmanArgs {
     #[arg(long)]
     career: bool,
 
@@ -33,8 +34,27 @@ struct Args {
     #[arg(long = "csv")]
     csv_file: Option<path::PathBuf>,
 
+    #[command(subcommand)]
+    lahman: LahmanType,
+
+    /*
     #[arg(value_name = "FILE")]
     pitching_file: path::PathBuf,
+    */
+}
+
+
+#[derive(Subcommand)]
+enum LahmanType {
+    Batting(LahmanFile),
+    Pitching(LahmanFile),
+}
+
+
+#[derive(Args)]
+struct LahmanFile {
+    #[arg(value_name = "FILE")]
+    lahman_file: path::PathBuf,
 }
 
 
@@ -155,15 +175,16 @@ impl PitchingCareer {
 }
 
 
-fn load_pitching(pitching_file: &path::Path) -> Result<Vec<lahman::pitching::Pitching>, Box<dyn Error>> {
+fn load_lahman_file<T: DeserializeOwned>(lahman_file: &path::Path) -> Result<Vec<T>, Box<dyn Error>>
+{
     let mut seasons = Vec::new();
 
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
-        .from_path(&pitching_file)?;
+        .from_path(&lahman_file)?;
     for result in reader.deserialize() {
         if let Ok(season) = result {
-            let season: lahman::pitching::Pitching = season;
+            let season: T = season;
             seasons.push(season);
         }
     }
@@ -227,15 +248,23 @@ fn sort_key(career: &PitchingCareer, context: &Context, program: &Program) -> f6
 
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
+    let args = LahmanArgs::parse();
 
-    let seasons = load_pitching(&args.pitching_file)?;
+    //let seasons = load_pitching(&args.pitching_file)?;
+    let seasons = match args.lahman {
+        LahmanType::Batting(path) => {
+            load_lahman_file(&path.lahman_file)?
+        }
+        LahmanType::Pitching(path) => {
+            load_lahman_file(&path.lahman_file)?
+        }
+    };
+
+    let mut context = Context::default();
+    context.add_function("abs", |a: f64| a.abs());
 
     if args.career {
         let careers_map = parse_career(&seasons);
-        let mut context = Context::default();
-
-        context.add_function("abs", |a: f64| a.abs());
 
         let mut careers: Vec<&PitchingCareer> = match args.filter {
             Some(filter_prog) => {
