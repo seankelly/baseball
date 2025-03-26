@@ -193,7 +193,7 @@ fn load_lahman_file<T: DeserializeOwned>(lahman_file: &path::Path) -> Result<Vec
 }
 
 
-fn parse_career(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, PitchingCareer> {
+fn collect_careers(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, PitchingCareer> {
     let mut career = HashMap::new();
 
     for season in seasons {
@@ -211,6 +211,46 @@ fn parse_career(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, Pitch
     }
 
     return career;
+}
+
+
+fn process_careers(args: &LahmanArgs, seasons: &[lahman::pitching::Pitching]) -> Result<(), Box<dyn Error>> {
+    let mut context = Context::default();
+    context.add_function("abs", |a: f64| a.abs());
+
+    let careers_map = collect_careers(&seasons);
+
+    let mut careers: Vec<&PitchingCareer> = match &args.filter {
+        Some(filter_prog) => {
+            let program = Program::compile(filter_prog)?;
+            careers_map.values().filter(|career| filter_option(career, &context, &program) ).collect()
+        }
+        None => {
+            careers_map.values().collect()
+        }
+    };
+
+    if let Some(sort_prog) = &args.sort_key {
+        let program = Program::compile(&sort_prog)?;
+        let sort_order = args.sort_order.as_ref().unwrap_or(&SortOrder::Asc);
+        careers.sort_unstable_by(|a, b| {
+            let a_res = sort_key(a, &context, &program);
+            let b_res = sort_key(b, &context, &program);
+            match sort_order {
+                SortOrder::Asc => { a_res.total_cmp(&b_res) }
+                SortOrder::Desc => { b_res.total_cmp(&a_res) }
+            }
+        });
+    }
+
+    let mut wtr = Writer::from_writer(vec![]);
+    let limit = args.limit.unwrap_or(careers.len());
+    for career in careers.iter().take(limit) {
+        wtr.serialize(career)?;
+    }
+    print!("{}", String::from_utf8(wtr.into_inner()?)?);
+
+    Ok(())
 }
 
 
@@ -251,7 +291,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let args = LahmanArgs::parse();
 
     //let seasons = load_pitching(&args.pitching_file)?;
-    let seasons = match args.lahman {
+    let seasons = match &args.lahman {
         LahmanType::Batting(path) => {
             load_lahman_file(&path.lahman_file)?
         }
@@ -264,37 +304,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     context.add_function("abs", |a: f64| a.abs());
 
     if args.career {
-        let careers_map = parse_career(&seasons);
-
-        let mut careers: Vec<&PitchingCareer> = match args.filter {
-            Some(filter_prog) => {
-                let program = Program::compile(&filter_prog)?;
-                careers_map.values().filter(|career| filter_option(career, &context, &program) ).collect()
-            }
-            None => {
-                careers_map.values().collect()
-            }
-        };
-
-        if let Some(sort_prog) = args.sort_key {
-            let program = Program::compile(&sort_prog)?;
-            let sort_order = args.sort_order.unwrap_or(SortOrder::Asc);
-            careers.sort_unstable_by(|a, b| {
-                let a_res = sort_key(a, &context, &program);
-                let b_res = sort_key(b, &context, &program);
-                match sort_order {
-                    SortOrder::Asc => { a_res.total_cmp(&b_res) }
-                    SortOrder::Desc => { b_res.total_cmp(&a_res) }
-                }
-            });
-        }
-
-        let mut wtr = Writer::from_writer(vec![]);
-        let limit = args.limit.unwrap_or(careers.len());
-        for career in careers.iter().take(limit) {
-            wtr.serialize(career)?;
-        }
-        print!("{}", String::from_utf8(wtr.into_inner()?)?);
+        process_careers(&args, &seasons)?;
     }
 
     Ok(())
