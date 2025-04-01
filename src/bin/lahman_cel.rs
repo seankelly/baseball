@@ -36,11 +36,6 @@ struct LahmanArgs {
 
     #[command(subcommand)]
     lahman: LahmanType,
-
-    /*
-    #[arg(value_name = "FILE")]
-    pitching_file: path::PathBuf,
-    */
 }
 
 
@@ -60,8 +55,6 @@ struct LahmanFile {
 
 trait Career {
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>>;
-    //fn add_season(&mut self, season: &Self);
-    //fn new(player_id: &str) -> Self;
 }
 
 
@@ -437,7 +430,6 @@ fn sort_key<T: Career>(career: &T, context: &Context, program: &Program) -> f64 
 fn run() -> Result<(), Box<dyn Error>> {
     let args = LahmanArgs::parse();
 
-    //let seasons = load_pitching(&args.pitching_file)?;
     let seasons = match &args.lahman {
         LahmanType::Batting(path) => {
             LahmanSeasons::Batting(load_lahman_file(&path.lahman_file)?)
