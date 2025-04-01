@@ -58,6 +58,44 @@ struct LahmanFile {
 }
 
 
+trait Career {
+    fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>>;
+    //fn add_season(&mut self, season: &Self);
+    //fn new(player_id: &str) -> Self;
+}
+
+
+enum LahmanSeasons {
+    Batting(Vec<lahman::batting::Batting>),
+    Pitching(Vec<lahman::pitching::Pitching>),
+}
+
+
+#[derive(Default, serde::Serialize)]
+struct BattingCareer {
+    player_id: String,
+    games: u16,
+    games_batting: u16,
+    atbats: u16,
+    runs: u16,
+    hits: u16,
+    doubles: u16,
+    triples: u16,
+    home_runs: u16,
+    runs_batted_in: u16,
+    stolen_bases: u16,
+    caught_stealing: u16,
+    walks: u16,
+    strikeouts: u16,
+    intentional_walks: u16,
+    hit_by_pitches: u16,
+    sacrifice_hits: u16,
+    sacrifice_flies: u16,
+    gidp: u16,
+    games_old: u16,
+}
+
+
 #[derive(Default, serde::Serialize)]
 struct PitchingCareer {
     player_id: String,
@@ -92,6 +130,69 @@ struct PitchingCareer {
 enum SortOrder {
     Asc,
     Desc,
+}
+
+
+impl BattingCareer {
+    fn add_season(&mut self, season: &lahman::batting::Batting) {
+        let season_games: u16 = season.games.into();
+        self.games += season_games;
+        self.atbats += season.atbats;
+        let season_runs: u16 = season.runs.into();
+        self.runs += season_runs;
+        self.hits += season.hits;
+        let season_doubles: u16 = season.doubles.into();
+        self.doubles += season_doubles;
+        let season_triples: u16 = season.triples.into();
+        self.triples += season_triples;
+        let season_home_runs: u16 = season.home_runs.into();
+        self.home_runs += season_home_runs;
+        let season_runs_batted_in: u16 = season.runs_batted_in.unwrap_or(0).into();
+        self.runs_batted_in += season_runs_batted_in;
+        let season_stolen_bases: u16 = season.stolen_bases.unwrap_or(0).into();
+        self.stolen_bases += season_stolen_bases;
+        let season_caught_stealing: u16 = season.caught_stealing.unwrap_or(0).into();
+        self.caught_stealing += season_caught_stealing;
+        let season_walks: u16 = season.walks.into();
+        self.walks += season_walks;
+        let season_strikeouts: u16 = season.strikeouts.unwrap_or(0).into();
+        self.strikeouts += season_strikeouts;
+        let season_intentional_walks: u16 = season.intentional_walks.unwrap_or(0).into();
+        self.intentional_walks += season_intentional_walks;
+        let season_hit_by_pitches: u16 = season.hit_by_pitches.unwrap_or(0).into();
+        self.hit_by_pitches += season_hit_by_pitches;
+        let season_sacrifice_hits: u16 = season.sacrifice_hits.unwrap_or(0).into();
+        self.sacrifice_hits += season_sacrifice_hits;
+        let season_sacrifice_flies: u16 = season.sacrifice_flies.unwrap_or(0).into();
+        self.sacrifice_flies += season_sacrifice_flies;
+        let season_gidp: u16 = season.gidp.unwrap_or(0).into();
+        self.gidp += season_gidp;
+    }
+}
+
+
+impl Career for BattingCareer {
+    fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
+        context.add_variable("G", self.games)?;
+        //context.add_variable("GB", self.games_batting)?;
+        context.add_variable("AB", self.atbats)?;
+        context.add_variable("R", self.runs)?;
+        context.add_variable("H", self.hits)?;
+        context.add_variable("H2", self.doubles)?;
+        context.add_variable("H3", self.triples)?;
+        context.add_variable("HR", self.home_runs)?;
+        context.add_variable("RBI", self.runs_batted_in)?;
+        context.add_variable("SB", self.stolen_bases)?;
+        context.add_variable("CS", self.caught_stealing)?;
+        context.add_variable("BB", self.walks)?;
+        context.add_variable("SO", self.strikeouts)?;
+        context.add_variable("IBB", self.intentional_walks)?;
+        context.add_variable("HBP", self.hit_by_pitches)?;
+        context.add_variable("SH", self.sacrifice_hits)?;
+        context.add_variable("SF", self.sacrifice_flies)?;
+        context.add_variable("GIDP", self.gidp)?;
+        Ok(())
+    }
 }
 
 
@@ -144,7 +245,10 @@ impl PitchingCareer {
         let ipouts = self.ip_outs as f32;
         self.era = er * 27.0 / ipouts;
     }
+}
 
+
+impl Career for PitchingCareer {
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
         context.add_variable("W", self.wins)?;
         context.add_variable("L", self.losses)?;
@@ -187,13 +291,46 @@ fn load_lahman_file<T: DeserializeOwned>(lahman_file: &path::Path) -> Result<Vec
             let season: T = season;
             seasons.push(season);
         }
+        /*
+        match result {
+            Ok(season) => {
+                let season: T = season;
+                seasons.push(season);
+            }
+            Err(e) => {
+                eprintln!("error: {}", e);
+                break;
+            }
+        }
+        */
     }
 
     Ok(seasons)
 }
 
 
-fn collect_careers(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, PitchingCareer> {
+fn collect_batting_careers(seasons: &[lahman::batting::Batting]) -> Vec<BattingCareer> {
+    let mut career = HashMap::new();
+
+    for season in seasons {
+        let player_id = season.player_id.clone();
+        if !career.contains_key(&player_id) {
+            let player_career = BattingCareer {
+                player_id: player_id.clone(),
+                ..Default::default()
+            };
+            career.insert(player_id.clone(), player_career);
+        }
+        if let Some(player_career) = career.get_mut(&player_id) {
+            player_career.add_season(season);
+        }
+    }
+
+    return career.into_values().collect();
+}
+
+
+fn collect_pitching_careers(seasons: &[lahman::pitching::Pitching]) -> Vec<PitchingCareer> {
     let mut career = HashMap::new();
 
     for season in seasons {
@@ -210,25 +347,31 @@ fn collect_careers(seasons: &[lahman::pitching::Pitching]) -> HashMap<String, Pi
         }
     }
 
-    return career;
+    return career.into_values().collect();
 }
 
 
-fn process_careers(args: &LahmanArgs, seasons: &[lahman::pitching::Pitching]) -> Result<(), Box<dyn Error>> {
-    let mut context = Context::default();
-    context.add_function("abs", |a: f64| a.abs());
-
-    let careers_map = collect_careers(&seasons);
-
-    let mut careers: Vec<&PitchingCareer> = match &args.filter {
-        Some(filter_prog) => {
-            let program = Program::compile(filter_prog)?;
-            careers_map.values().filter(|career| filter_option(career, &context, &program) ).collect()
+fn filter_option<T: Career>(career: &T, context: &Context, program: &Program) -> bool {
+    let mut player_ctx = context.new_inner_scope();
+    if let Err(_) = career.add_cel_variables(&mut player_ctx) {
+        return false;
+    }
+    match program.execute(&player_ctx) {
+        Ok(Value::Bool(true)) => true,
+        Ok(_) => false,
+        Err(error) => {
+            eprintln!("error evaluating: {error}");
+            false
         }
-        None => {
-            careers_map.values().collect()
-        }
-    };
+    }
+}
+
+
+fn process_careers_generic<T: Career + serde::Serialize>(args: &LahmanArgs, context: &Context, careers: &mut Vec<T>) -> Result<String, Box<dyn Error>> {
+    if let Some(filter_prog) = &args.filter {
+        let program = Program::compile(filter_prog)?;
+        careers.retain(|career| filter_option(career, &context, &program) );
+    }
 
     if let Some(sort_prog) = &args.sort_key {
         let program = Program::compile(&sort_prog)?;
@@ -248,29 +391,33 @@ fn process_careers(args: &LahmanArgs, seasons: &[lahman::pitching::Pitching]) ->
     for career in careers.iter().take(limit) {
         wtr.serialize(career)?;
     }
-    print!("{}", String::from_utf8(wtr.into_inner()?)?);
+
+    Ok(String::from_utf8(wtr.into_inner()?)?)
+}
+
+
+fn process_careers(args: &LahmanArgs, seasons: &LahmanSeasons) -> Result<(), Box<dyn Error>> {
+    let mut context = Context::default();
+    context.add_function("abs", |a: f64| a.abs());
+
+    let results = match seasons {
+        LahmanSeasons::Batting(s) => {
+            let mut careers = collect_batting_careers(s);
+            process_careers_generic(args, &context, &mut careers)?
+        }
+        LahmanSeasons::Pitching(s) => {
+            let mut careers = collect_pitching_careers(s);
+            process_careers_generic(args, &context, &mut careers)?
+        }
+    };
+
+    print!("{}", results);
 
     Ok(())
 }
 
 
-fn filter_option(career: &PitchingCareer, context: &Context, program: &Program) -> bool {
-    let mut player_ctx = context.new_inner_scope();
-    if let Err(_) = career.add_cel_variables(&mut player_ctx) {
-        return false;
-    }
-    match program.execute(&player_ctx) {
-        Ok(Value::Bool(true)) => true,
-        Ok(_) => false,
-        Err(error) => {
-            eprintln!("error evaluating: {error}");
-            false
-        }
-    }
-}
-
-
-fn sort_key(career: &PitchingCareer, context: &Context, program: &Program) -> f64 {
+fn sort_key<T: Career>(career: &T, context: &Context, program: &Program) -> f64 {
     let mut player_ctx = context.new_inner_scope();
     if let Err(_) = career.add_cel_variables(&mut player_ctx) {
         return f64::NEG_INFINITY;
@@ -293,10 +440,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     //let seasons = load_pitching(&args.pitching_file)?;
     let seasons = match &args.lahman {
         LahmanType::Batting(path) => {
-            load_lahman_file(&path.lahman_file)?
+            LahmanSeasons::Batting(load_lahman_file(&path.lahman_file)?)
         }
         LahmanType::Pitching(path) => {
-            load_lahman_file(&path.lahman_file)?
+            LahmanSeasons::Pitching(load_lahman_file(&path.lahman_file)?)
         }
     };
 
