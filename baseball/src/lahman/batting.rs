@@ -1,3 +1,6 @@
+use serde_derive::Deserialize;
+
+
 #[derive(Debug, Deserialize)]
 pub struct Batting {
     #[serde(rename = "playerID")]

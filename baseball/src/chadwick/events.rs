@@ -1,6 +1,8 @@
+use serde_derive::Deserialize;
 
 use crate::chadwick::bool_from_string;
 use crate::chadwick::parse_handedness;
+
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "UPPERCASE")]

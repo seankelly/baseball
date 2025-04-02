@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use csv::ReaderBuilder;
+use serde_derive::Deserialize;
 
 
 #[derive(Clone, Debug, Deserialize)]
