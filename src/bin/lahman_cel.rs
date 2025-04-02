@@ -125,41 +125,44 @@ enum SortOrder {
     Desc,
 }
 
+macro_rules! u8_into_u16 {
+    ($attr:expr) => {
+        {
+            let v: u16 = $attr.into();
+            v
+        }
+    };
+}
+
+macro_rules! u8_option_into_u16 {
+    ($attr:expr) => {
+        {
+            let v: u16 = $attr.unwrap_or(0).into();
+            v
+        }
+    };
+}
+
 
 impl BattingCareer {
     fn add_season(&mut self, season: &lahman::batting::Batting) {
-        let season_games: u16 = season.games.into();
-        self.games += season_games;
+        self.games += u8_into_u16!(season.games);
         self.atbats += season.atbats;
-        let season_runs: u16 = season.runs.into();
-        self.runs += season_runs;
+        self.runs += u8_into_u16!(season.runs);
         self.hits += season.hits;
-        let season_doubles: u16 = season.doubles.into();
-        self.doubles += season_doubles;
-        let season_triples: u16 = season.triples.into();
-        self.triples += season_triples;
-        let season_home_runs: u16 = season.home_runs.into();
-        self.home_runs += season_home_runs;
-        let season_runs_batted_in: u16 = season.runs_batted_in.unwrap_or(0).into();
-        self.runs_batted_in += season_runs_batted_in;
-        let season_stolen_bases: u16 = season.stolen_bases.unwrap_or(0).into();
-        self.stolen_bases += season_stolen_bases;
-        let season_caught_stealing: u16 = season.caught_stealing.unwrap_or(0).into();
-        self.caught_stealing += season_caught_stealing;
-        let season_walks: u16 = season.walks.into();
-        self.walks += season_walks;
-        let season_strikeouts: u16 = season.strikeouts.unwrap_or(0).into();
-        self.strikeouts += season_strikeouts;
-        let season_intentional_walks: u16 = season.intentional_walks.unwrap_or(0).into();
-        self.intentional_walks += season_intentional_walks;
-        let season_hit_by_pitches: u16 = season.hit_by_pitches.unwrap_or(0).into();
-        self.hit_by_pitches += season_hit_by_pitches;
-        let season_sacrifice_hits: u16 = season.sacrifice_hits.unwrap_or(0).into();
-        self.sacrifice_hits += season_sacrifice_hits;
-        let season_sacrifice_flies: u16 = season.sacrifice_flies.unwrap_or(0).into();
-        self.sacrifice_flies += season_sacrifice_flies;
-        let season_gidp: u16 = season.gidp.unwrap_or(0).into();
-        self.gidp += season_gidp;
+        self.doubles += u8_into_u16!(season.doubles);
+        self.triples += u8_into_u16!(season.triples);
+        self.home_runs += u8_into_u16!(season.home_runs);
+        self.runs_batted_in += u8_option_into_u16!(season.runs_batted_in);
+        self.stolen_bases += u8_option_into_u16!(season.stolen_bases);
+        self.caught_stealing += u8_option_into_u16!(season.caught_stealing);
+        self.walks += u8_into_u16!(season.walks);
+        self.strikeouts += u8_option_into_u16!(season.strikeouts);
+        self.intentional_walks += u8_option_into_u16!(season.intentional_walks);
+        self.hit_by_pitches += u8_option_into_u16!(season.hit_by_pitches);
+        self.sacrifice_hits += u8_option_into_u16!(season.sacrifice_hits);
+        self.sacrifice_flies += u8_option_into_u16!(season.sacrifice_flies);
+        self.gidp += u8_option_into_u16!(season.gidp);
     }
 }
 
@@ -191,48 +194,29 @@ impl Career for BattingCareer {
 
 impl PitchingCareer {
     fn add_season(&mut self, season: &lahman::pitching::Pitching) {
-        let season_wins: u16 = season.wins.into();
-        self.wins += season_wins;
-        let season_losses: u16 = season.losses.into();
-        self.losses += season_losses;
-        let season_games: u16 = season.games.into();
-        self.games += season_games;
-        let season_games_started: u16 = season.games_started.into();
-        self.games_started += season_games_started;
-        let season_complete_games: u16 = season.complete_games.into();
-        self.complete_games += season_complete_games;
+        self.wins += u8_into_u16!(season.wins);
+        self.losses += u8_into_u16!(season.losses);
+        self.games += u8_into_u16!(season.games);
+        self.games_started += u8_into_u16!(season.games_started);
+        self.complete_games += u8_into_u16!(season.complete_games);
         self.shutouts += season.shutouts;
-        let season_saves: u16 = season.saves.into();
-        self.saves += season_saves;
-        let season_ip_outs: u16 = season.ip_outs.into();
-        self.ip_outs += season_ip_outs;
+        self.saves += u8_into_u16!(season.saves);
+        self.ip_outs += u8_into_u16!(season.ip_outs);
         self.hits += season.hits;
-        let season_earned_runs: u16 = season.earned_runs.into();
-        self.earned_runs += season_earned_runs;
-        let season_home_runs: u16 = season.home_runs.into();
-        self.home_runs += season_home_runs;
-        let season_walks: u16 = season.walks.into();
-        self.walks += season_walks;
-        let season_strikeouts: u16 = season.strikeouts.into();
-        self.strikeouts += season_strikeouts;
-        let season_intentional_walks: u16 = season.intentional_walks.unwrap_or(0).into();
-        self.intentional_walks += season_intentional_walks;
-        let season_wild_pitches: u16 = season.wild_pitches.into();
-        self.wild_pitches += season_wild_pitches;
-        let season_hit_by_pitches: u16 = season.hit_by_pitches.unwrap_or(0).into();
-        self.hit_by_pitches += season_hit_by_pitches;
+        self.earned_runs += u8_into_u16!(season.earned_runs);
+        self.home_runs += u8_into_u16!(season.home_runs);
+        self.walks += u8_into_u16!(season.walks);
+        self.strikeouts += u8_into_u16!(season.strikeouts);
+        self.intentional_walks += u8_option_into_u16!(season.intentional_walks);
+        self.wild_pitches += u8_into_u16!(season.wild_pitches);
+        self.hit_by_pitches += u8_option_into_u16!(season.hit_by_pitches);
         self.balks += season.balks;
         self.batters_faced += season.batters_faced.unwrap_or(0);
-        let season_games_finished: u16 = season.games_finished.into();
-        self.games_finished += season_games_finished;
-        let season_runs: u16 = season.runs.into();
-        self.runs += season_runs;
-        let season_sacrifice_hits: u16 = season.sacrifice_hits.unwrap_or(0).into();
-        self.sacrifice_hits += season_sacrifice_hits;
-        let season_sacrifice_flies: u16 = season.sacrifice_flies.unwrap_or(0).into();
-        self.sacrifice_flies += season_sacrifice_flies;
-        let season_gidp: u16 = season.gidp.unwrap_or(0).into();
-        self.gidp += season_gidp;
+        self.games_finished += u8_into_u16!(season.games_finished);
+        self.runs += u8_into_u16!(season.runs);
+        self.sacrifice_hits += u8_option_into_u16!(season.sacrifice_hits);
+        self.sacrifice_flies += u8_option_into_u16!(season.sacrifice_flies);
+        self.gidp += u8_option_into_u16!(season.gidp);
 
         let er = self.earned_runs as f32;
         let ipouts = self.ip_outs as f32;
