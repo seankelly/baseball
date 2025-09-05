@@ -174,7 +174,9 @@ def main():
     for season in args.season:
         seasonal_re24 = process_year(args.season_dir, season)
         re24.consume_re24(seasonal_re24)
+    print("Runs scored")
     print(re24.table())
+    print("Probability 1+ runs score")
     print(re24.scored_table())
 
 
