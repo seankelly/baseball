@@ -93,10 +93,10 @@ fn load_gamelog_file<T: DeserializeOwned>(file: &path::Path) -> Result<Vec<T>, B
 }
 
 
-fn dump_csv<T: serde::Serialize, F: std::io::Write>(gamelog: &Vec<T>, csv_file: &mut F) -> Result<(), Box<dyn Error>> {
+fn dump_csv<T: serde::Serialize>(gamelog: &Vec<T>, csv_file: &path::Path) -> Result<(), Box<dyn Error>> {
     let mut writer = csv::WriterBuilder::new()
         .has_headers(true)
-        .from_writer(csv_file);
+        .from_path(&csv_file)?;
     for row in gamelog {
         writer.serialize(row)?;
     }
@@ -130,6 +130,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 gamelogs.par_extend(gamelog);
             }
             search.sort(&mut gamelogs, &sort_order);
+            if let Some(csv_file) = args.csv_file {
+                dump_csv(&gamelogs, &csv_file)?;
+            }
             results(&gamelogs, args.limit)?
         }
         GamelogType::Fielding(files) => {
@@ -140,6 +143,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 gamelogs.par_extend(gamelog);
             }
             search.sort(&mut gamelogs, &sort_order);
+            if let Some(csv_file) = args.csv_file {
+                dump_csv(&gamelogs, &csv_file)?;
+            }
             results(&gamelogs, args.limit)?
         }
         GamelogType::Pitching(files) => {
@@ -150,6 +156,9 @@ fn run() -> Result<(), Box<dyn Error>> {
                 gamelogs.par_extend(gamelog);
             }
             search.sort(&mut gamelogs, &sort_order);
+            if let Some(csv_file) = args.csv_file {
+                dump_csv(&gamelogs, &csv_file)?;
+            }
             results(&gamelogs, args.limit)?
         }
     };
