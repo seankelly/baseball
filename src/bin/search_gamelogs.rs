@@ -2,7 +2,7 @@ use std::convert::From;
 use std::error::Error;
 use std::path;
 
-use baseball_tools::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball::chadwick::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
 use baseball_tools::search::{Search, SortOrder};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};

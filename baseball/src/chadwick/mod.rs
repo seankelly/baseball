@@ -6,6 +6,7 @@ use serde::de::{self, Deserialize, Deserializer, Unexpected};
 
 
 pub mod events;
+pub mod gamelogs;
 
 pub use events::Event;
 pub use events::EventExtended;

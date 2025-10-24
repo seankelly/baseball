@@ -4,8 +4,8 @@ use std::error::Error;
 use std::fs;
 use std::path;
 
+use baseball::chadwick::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
 use baseball::register::Register;
-use baseball_tools::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
 
 use clap::Parser;
 use quick_xml::events::{BytesStart, Event};

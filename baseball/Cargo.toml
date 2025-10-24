@@ -6,5 +6,6 @@ edition = "2021"
 
 [dependencies]
 csv = "1.0.0"
+quick-xml = "0.37.3"
 serde = { version = "1.0.43", features = ["derive"] }
 serde_derive = "1.0.43"
