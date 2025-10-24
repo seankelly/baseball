@@ -1,30 +1,9 @@
 use std::error::Error;
-use std::default::Default;
-use std::str;
 
 use crate::search::CelSearch;
 
 use baseball::chadwick;
 use cel_interpreter::Context;
-use quick_xml::events::BytesStart;
-use serde::Serialize;
-use serde_derive::Deserialize;
-
-
-fn attribute_to_u8(attr: &quick_xml::events::attributes::Attribute) -> u8 {
-    let attribute = str::from_utf8(attr.value.as_ref());
-    u8::from_str_radix(attribute.unwrap_or("0"), 10).unwrap_or(0)
-}
-
-
-fn attribute_to_bool(attr: &quick_xml::events::attributes::Attribute) -> bool {
-    let attribute = str::from_utf8(attr.value.as_ref());
-    match attribute.unwrap_or("0") {
-        "0" => false,
-        "1" => true,
-        _ => false,
-    }
-}
 
 
 impl CelSearch for chadwick::gamelogs::BattingGamelog {

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::default::Default;
-use std::error::Error;
 use std::io;
 
 use csv::ReaderBuilder;
