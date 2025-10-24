@@ -29,24 +29,24 @@ fn attribute_to_bool(attr: &quick_xml::events::attributes::Attribute) -> bool {
 
 impl CelSearch for chadwick::gamelogs::BattingGamelog {
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
-        context.add_variable("AB", self.AB)?;
-        context.add_variable("PA", self.PA)?;
-        context.add_variable("R", self.R)?;
-        context.add_variable("H", self.H)?;
-        context.add_variable("D", self.D)?;
-        context.add_variable("T", self.T)?;
-        context.add_variable("HR", self.HR)?;
-        context.add_variable("RBI", self.RBI)?;
-        context.add_variable("SB", self.SB)?;
-        context.add_variable("CS", self.CS)?;
-        context.add_variable("BB", self.BB)?;
-        context.add_variable("SO", self.SO)?;
-        context.add_variable("IBB", self.IBB)?;
-        context.add_variable("HBP", self.HBP)?;
-        context.add_variable("SH", self.SH)?;
-        context.add_variable("SF", self.SF)?;
-        context.add_variable("GIDP", self.GIDP)?;
-        context.add_variable("pos", self.POS.clone())?;
+        context.add_variable("ab", self.ab)?;
+        context.add_variable("pa", self.pa)?;
+        context.add_variable("r", self.r)?;
+        context.add_variable("h", self.h)?;
+        context.add_variable("d", self.d)?;
+        context.add_variable("t", self.t)?;
+        context.add_variable("hr", self.hr)?;
+        context.add_variable("rbi", self.rbi)?;
+        context.add_variable("sb", self.sb)?;
+        context.add_variable("cs", self.cs)?;
+        context.add_variable("bb", self.bb)?;
+        context.add_variable("so", self.so)?;
+        context.add_variable("ibb", self.ibb)?;
+        context.add_variable("hbp", self.hbp)?;
+        context.add_variable("sh", self.sh)?;
+        context.add_variable("sf", self.sf)?;
+        context.add_variable("gidp", self.gidp)?;
+        context.add_variable("pos", self.pos.clone())?;
         Ok(())
     }
 }
@@ -54,15 +54,15 @@ impl CelSearch for chadwick::gamelogs::BattingGamelog {
 
 impl CelSearch for chadwick::gamelogs::FieldingGamelog {
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
-        context.add_variable("POS", self.POS)?;
-        context.add_variable("O", self.O)?;
-        context.add_variable("PO", self.PO)?;
-        context.add_variable("A", self.A)?;
-        context.add_variable("E", self.E)?;
-        context.add_variable("DP", self.DP)?;
-        context.add_variable("TP", self.TP)?;
-        context.add_variable("BIP", self.BIP)?;
-        context.add_variable("BF", self.BF)?;
+        context.add_variable("pos", self.pos)?;
+        context.add_variable("o", self.o)?;
+        context.add_variable("po", self.po)?;
+        context.add_variable("a", self.a)?;
+        context.add_variable("e", self.e)?;
+        context.add_variable("dp", self.dp)?;
+        context.add_variable("tp", self.tp)?;
+        context.add_variable("bip", self.bip)?;
+        context.add_variable("bf", self.bf)?;
         Ok(())
     }
 }
@@ -70,25 +70,25 @@ impl CelSearch for chadwick::gamelogs::FieldingGamelog {
 
 impl CelSearch for chadwick::gamelogs::PitchingGamelog {
     fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
-        context.add_variable("GS", self.GS)?;
-        context.add_variable("GF", self.GF)?;
-        context.add_variable("CG", self.CG)?;
-        context.add_variable("SHO", self.SHO)?;
-        context.add_variable("IPOuts", self.IPouts)?;
-        context.add_variable("H", self.H)?;
-        context.add_variable("R", self.R)?;
-        context.add_variable("ER", self.ER)?;
-        context.add_variable("HR", self.HR)?;
-        context.add_variable("BB", self.BB)?;
-        context.add_variable("SO", self.SO)?;
-        context.add_variable("IBB", self.IBB)?;
-        context.add_variable("WP", self.WP)?;
-        context.add_variable("HBP", self.HBP)?;
-        context.add_variable("BK", self.BK)?;
-        context.add_variable("BF", self.BF)?;
-        context.add_variable("GF", self.GF)?;
-        context.add_variable("P", self.P)?;
-        context.add_variable("S", self.S)?;
+        context.add_variable("gs", self.gs)?;
+        context.add_variable("gf", self.gf)?;
+        context.add_variable("cg", self.cg)?;
+        context.add_variable("sho", self.sho)?;
+        context.add_variable("ipouts", self.ipouts)?;
+        context.add_variable("h", self.h)?;
+        context.add_variable("r", self.r)?;
+        context.add_variable("er", self.er)?;
+        context.add_variable("hr", self.hr)?;
+        context.add_variable("bb", self.bb)?;
+        context.add_variable("so", self.so)?;
+        context.add_variable("ibb", self.ibb)?;
+        context.add_variable("wp", self.wp)?;
+        context.add_variable("hbp", self.hbp)?;
+        context.add_variable("bk", self.bk)?;
+        context.add_variable("bf", self.bf)?;
+        context.add_variable("gf", self.gf)?;
+        context.add_variable("p", self.p)?;
+        context.add_variable("s", self.s)?;
         context.add_variable("decision", self.decision.clone())?;
         Ok(())
     }

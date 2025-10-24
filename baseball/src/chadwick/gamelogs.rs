@@ -11,26 +11,26 @@ use serde_derive::Deserialize;
 pub struct BattingGamelog {
     pub player_id: String,
     pub game_id: String,
-    pub PA: u8,
-    pub AB: u8,
-    pub R: u8,
-    pub H: u8,
-    pub D: u8,
-    pub T: u8,
-    pub HR: u8,
-    pub RBI: u8,
-    pub RBI2out: u8,
-    pub BB: u8,
-    pub IBB: u8,
-    pub SO: u8,
-    pub GIDP: u8,
-    pub HBP: u8,
-    pub SH: u8,
-    pub SF: u8,
-    pub SB: u8,
-    pub CS: u8,
+    pub pa: u8,
+    pub ab: u8,
+    pub r: u8,
+    pub h: u8,
+    pub d: u8,
+    pub t: u8,
+    pub hr: u8,
+    pub rbi: u8,
+    pub rbi2out: u8,
+    pub bb: u8,
+    pub ibb: u8,
+    pub so: u8,
+    pub gidp: u8,
+    pub hbp: u8,
+    pub sh: u8,
+    pub sf: u8,
+    pub sb: u8,
+    pub cs: u8,
 
-    pub POS: String,
+    pub pos: String,
 }
 
 
@@ -39,15 +39,15 @@ pub struct BattingGamelog {
 pub struct FieldingGamelog {
     pub player_id: String,
     pub game_id: String,
-    pub POS: u8,
-    pub O: u8,
-    pub PO: u8,
-    pub A: u8,
-    pub E: u8,
-    pub DP: u8,
-    pub TP: u8,
-    pub BIP: u8,
-    pub BF: u8,
+    pub pos: u8,
+    pub o: u8,
+    pub po: u8,
+    pub a: u8,
+    pub e: u8,
+    pub dp: u8,
+    pub tp: u8,
+    pub bip: u8,
+    pub bf: u8,
 }
 
 
@@ -56,27 +56,27 @@ pub struct FieldingGamelog {
 pub struct PitchingGamelog {
     pub player_id: String,
     pub game_id: String,
-    pub GS: bool,
-    pub CG: bool,
-    pub SHO: bool,
-    pub GF: bool,
-    pub IPouts: u8,
-    pub AB: u8,
-    pub BF: u8,
-    pub H: u8,
-    pub R: u8,
-    pub ER: u8,
-    pub HR: u8,
-    pub BB: u8,
-    pub IBB: u8,
-    pub SO: u8,
-    pub WP: u8,
-    pub BK: u8,
-    pub HBP: u8,
-    pub GB: u8,
-    pub FB: u8,
-    pub P: u8,
-    pub S: u8,
+    pub gs: bool,
+    pub cg: bool,
+    pub sho: bool,
+    pub gf: bool,
+    pub ipouts: u8,
+    pub ab: u8,
+    pub bf: u8,
+    pub h: u8,
+    pub r: u8,
+    pub er: u8,
+    pub hr: u8,
+    pub bb: u8,
+    pub ibb: u8,
+    pub so: u8,
+    pub wp: u8,
+    pub bk: u8,
+    pub hbp: u8,
+    pub gb: u8,
+    pub fb: u8,
+    pub p: u8,
+    pub s: u8,
     pub decision: String,
 }
 
@@ -101,11 +101,11 @@ impl BattingGamelog {
     pub fn from_element(element: &BytesStart, game_id: &str, player_id: &str, positions: &String) -> Self {
         let game_id = game_id.to_owned();
         let player_id = player_id.to_owned();
-        let POS = positions.clone();
+        let pos = positions.clone();
         let mut batting = Self {
             player_id,
             game_id,
-            POS,
+            pos,
             ..Default::default()
         };
 
@@ -113,23 +113,23 @@ impl BattingGamelog {
             match attribute {
                 Ok(attr) => {
                     match attr.key.local_name().as_ref() {
-                        b"ab" => { batting.AB = attribute_to_u8(&attr); }
-                        b"r" => { batting.R = attribute_to_u8(&attr); }
-                        b"h" => { batting.H = attribute_to_u8(&attr); }
-                        b"d" => { batting.D = attribute_to_u8(&attr); }
-                        b"t" => { batting.T = attribute_to_u8(&attr); }
-                        b"hr" => { batting.HR = attribute_to_u8(&attr); }
-                        b"bi" => { batting.RBI = attribute_to_u8(&attr); }
-                        b"bi2out" => { batting.RBI2out = attribute_to_u8(&attr); }
-                        b"bb" => { batting.BB = attribute_to_u8(&attr); }
-                        b"ibb" => { batting.IBB = attribute_to_u8(&attr); }
-                        b"so" => { batting.SO = attribute_to_u8(&attr); }
-                        b"gdp" => { batting.GIDP = attribute_to_u8(&attr); }
-                        b"hp" => { batting.HBP = attribute_to_u8(&attr); }
-                        b"sh" => { batting.SH = attribute_to_u8(&attr); }
-                        b"sf" => { batting.SF = attribute_to_u8(&attr); }
-                        b"sb" => { batting.SB = attribute_to_u8(&attr); }
-                        b"cs" => { batting.CS = attribute_to_u8(&attr); }
+                        b"ab" => { batting.ab = attribute_to_u8(&attr); }
+                        b"r" => { batting.r = attribute_to_u8(&attr); }
+                        b"h" => { batting.h = attribute_to_u8(&attr); }
+                        b"d" => { batting.d = attribute_to_u8(&attr); }
+                        b"t" => { batting.t = attribute_to_u8(&attr); }
+                        b"hr" => { batting.hr = attribute_to_u8(&attr); }
+                        b"bi" => { batting.rbi = attribute_to_u8(&attr); }
+                        b"bi2out" => { batting.rbi2out = attribute_to_u8(&attr); }
+                        b"bb" => { batting.bb = attribute_to_u8(&attr); }
+                        b"ibb" => { batting.ibb = attribute_to_u8(&attr); }
+                        b"so" => { batting.so = attribute_to_u8(&attr); }
+                        b"gdp" => { batting.gidp = attribute_to_u8(&attr); }
+                        b"hp" => { batting.hbp = attribute_to_u8(&attr); }
+                        b"sh" => { batting.sh = attribute_to_u8(&attr); }
+                        b"sf" => { batting.sf = attribute_to_u8(&attr); }
+                        b"sb" => { batting.sb = attribute_to_u8(&attr); }
+                        b"cs" => { batting.cs = attribute_to_u8(&attr); }
                         _ => { }
                     }
                 }
@@ -138,7 +138,7 @@ impl BattingGamelog {
         }
 
         // Calculate plate appearances ahead of time for simplicity.
-        batting.PA = batting.AB + batting.BB + batting.HBP + batting.SF + batting.SH;
+        batting.pa = batting.ab + batting.bb + batting.hbp + batting.sf + batting.sh;
 
         return batting;
     }
@@ -159,15 +159,15 @@ impl FieldingGamelog {
             match attribute {
                 Ok(attr) => {
                     match attr.key.local_name().as_ref() {
-                        b"pos" => { fielding.POS = attribute_to_u8(&attr); }
-                        b"outs" => { fielding.O = attribute_to_u8(&attr); }
-                        b"po" => { fielding.PO = attribute_to_u8(&attr); }
-                        b"a" => { fielding.A = attribute_to_u8(&attr); }
-                        b"e" => { fielding.E = attribute_to_u8(&attr); }
-                        b"dp" => { fielding.DP = attribute_to_u8(&attr); }
-                        b"tp" => { fielding.TP = attribute_to_u8(&attr); }
-                        b"bip" => { fielding.BIP = attribute_to_u8(&attr); }
-                        b"bf" => { fielding.BF = attribute_to_u8(&attr); }
+                        b"pos" => { fielding.pos = attribute_to_u8(&attr); }
+                        b"outs" => { fielding.o = attribute_to_u8(&attr); }
+                        b"po" => { fielding.po = attribute_to_u8(&attr); }
+                        b"a" => { fielding.a = attribute_to_u8(&attr); }
+                        b"e" => { fielding.e = attribute_to_u8(&attr); }
+                        b"dp" => { fielding.dp = attribute_to_u8(&attr); }
+                        b"tp" => { fielding.tp = attribute_to_u8(&attr); }
+                        b"bip" => { fielding.bip = attribute_to_u8(&attr); }
+                        b"bf" => { fielding.bf = attribute_to_u8(&attr); }
                         _ => { }
                     }
                 }
@@ -196,27 +196,27 @@ impl PitchingGamelog {
                             let attribute = str::from_utf8(attr.value.as_ref());
                             pitching.player_id = attribute.unwrap_or("").to_owned();
                         }
-                        b"gs" => { pitching.GS = attribute_to_bool(&attr); }
-                        b"cg" => { pitching.CG = attribute_to_bool(&attr); }
-                        b"sho" => { pitching.SHO = attribute_to_bool(&attr); }
-                        b"gf" => { pitching.GF = attribute_to_bool(&attr); }
-                        b"outs" => { pitching.IPouts = attribute_to_u8(&attr); }
-                        b"ab" => { pitching.AB = attribute_to_u8(&attr); }
-                        b"bf" => { pitching.BF = attribute_to_u8(&attr); }
-                        b"h" => { pitching.H = attribute_to_u8(&attr); }
-                        b"r" => { pitching.R = attribute_to_u8(&attr); }
-                        b"er" => { pitching.ER = attribute_to_u8(&attr); }
-                        b"hr" => { pitching.HR = attribute_to_u8(&attr); }
-                        b"bb" => { pitching.BB = attribute_to_u8(&attr); }
-                        b"ibb" => { pitching.IBB = attribute_to_u8(&attr); }
-                        b"so" => { pitching.SO = attribute_to_u8(&attr); }
-                        b"wp" => { pitching.WP = attribute_to_u8(&attr); }
-                        b"bk" => { pitching.BK = attribute_to_u8(&attr); }
-                        b"hb" => { pitching.HBP = attribute_to_u8(&attr); }
-                        b"gb" => { pitching.GB = attribute_to_u8(&attr); }
-                        b"fb" => { pitching.FB = attribute_to_u8(&attr); }
-                        b"pitch" => { pitching.P = attribute_to_u8(&attr); }
-                        b"strike" => { pitching.S = attribute_to_u8(&attr); }
+                        b"gs" => { pitching.gs = attribute_to_bool(&attr); }
+                        b"cg" => { pitching.cg = attribute_to_bool(&attr); }
+                        b"sho" => { pitching.sho = attribute_to_bool(&attr); }
+                        b"gf" => { pitching.gf = attribute_to_bool(&attr); }
+                        b"outs" => { pitching.ipouts = attribute_to_u8(&attr); }
+                        b"ab" => { pitching.ab = attribute_to_u8(&attr); }
+                        b"bf" => { pitching.bf = attribute_to_u8(&attr); }
+                        b"h" => { pitching.h = attribute_to_u8(&attr); }
+                        b"r" => { pitching.r = attribute_to_u8(&attr); }
+                        b"er" => { pitching.er = attribute_to_u8(&attr); }
+                        b"hr" => { pitching.hr = attribute_to_u8(&attr); }
+                        b"bb" => { pitching.bb = attribute_to_u8(&attr); }
+                        b"ibb" => { pitching.ibb = attribute_to_u8(&attr); }
+                        b"so" => { pitching.so = attribute_to_u8(&attr); }
+                        b"wp" => { pitching.wp = attribute_to_u8(&attr); }
+                        b"bk" => { pitching.bk = attribute_to_u8(&attr); }
+                        b"hb" => { pitching.hbp = attribute_to_u8(&attr); }
+                        b"gb" => { pitching.gb = attribute_to_u8(&attr); }
+                        b"fb" => { pitching.fb = attribute_to_u8(&attr); }
+                        b"pitch" => { pitching.p = attribute_to_u8(&attr); }
+                        b"strike" => { pitching.s = attribute_to_u8(&attr); }
                         b"dec" => {
                             let attribute = str::from_utf8(attr.value.as_ref());
                             pitching.decision = attribute.unwrap_or("").to_owned();
