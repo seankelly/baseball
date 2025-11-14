@@ -1,14 +1,17 @@
+use std::borrow::Borrow;
 use std::error::Error;
 use std::fs;
 use std::path;
+use std::process::Command;
 
 use baseball::register::Person;
+use baseball::chadwick::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
 
 use clap::Parser;
 use csv::ReaderBuilder;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
-use rusqlite::{Connection, Result, named_params};
+use rusqlite::{Connection, Result, Transaction, named_params};
 
 
 #[derive(Parser)]
@@ -19,8 +22,412 @@ struct DatabaseArgs {
     #[arg(short, long)]
     init: bool,
 
-    #[arg(short, long)]
+    #[arg(short = 'G', long)]
+    gamelogs: bool,
+
+    #[arg(short = 'R', long)]
     register_dir: Option<path::PathBuf>,
+
+    #[arg(short = 'r', long)]
+    retrosheet_dir: Option<path::PathBuf>,
+
+    seasons: Vec<String>,
+}
+
+
+// SQL interaction section.
+fn create_batting_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+    conn.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
+    conn.execute(
+        "CREATE TABLE batting_gamelogs (
+            player_id TEXT NOT NULL,
+            game_id TEXT NOT NULL,
+            pa INTEGER,
+            ab INTEGER,
+            r INTEGER,
+            h INTEGER,
+            d INTEGER,
+            t INTEGER,
+            hr INTEGER,
+            rbi INTEGER,
+            rbi2out INTEGER,
+            bb INTEGER,
+            ibb INTEGER,
+            so INTEGER,
+            gidp INTEGER,
+            hbp INTEGER,
+            sh INTEGER,
+            sf INTEGER,
+            sb INTEGER,
+            cs INTEGER,
+            pos TEXT
+        )",
+        ()
+    )?;
+
+    Ok(())
+}
+
+
+fn create_fielding_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+    conn.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
+    conn.execute(
+        "CREATE TABLE fielding_gamelogs (
+            player_id TEXT NOT NULL,
+            game_id TEXT NOT NULL,
+            pos INTEGER,
+            o INTEGER,
+            po INTEGER,
+            a INTEGER,
+            e INTEGER,
+            dp INTEGER,
+            tp INTEGER,
+            bip INTEGER,
+            bf INTEGER
+        )",
+        ()
+    )?;
+
+    Ok(())
+}
+
+
+fn create_pitching_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+    conn.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
+    conn.execute(
+        "CREATE TABLE pitching_gamelogs (
+            player_id TEXT NOT NULL,
+            game_id TEXT NOT NULL,
+            gs INTEGER,
+            cg INTEGER,
+            sho INTEGER,
+            gf INTEGER,
+            ipouts INTEGER,
+            ab INTEGER,
+            bf INTEGER,
+            h INTEGER,
+            r INTEGER,
+            er INTEGER,
+            hr INTEGER,
+            bb INTEGER,
+            ibb INTEGER,
+            so INTEGER,
+            wp INTEGER,
+            bk INTEGER,
+            hbp INTEGER,
+            gb INTEGER,
+            fb INTEGER,
+            p INTEGER,
+            s INTEGER,
+            decision TEXT
+        )",
+        ()
+    )?;
+
+    Ok(())
+}
+
+
+fn insert_batting_gamelogs(tx: &Transaction, gamelogs: &Vec<BattingGamelog>) -> Result<(), Box<dyn Error>> {
+    let insert_sql = String::from(
+        "INSERT INTO batting_gamelogs VALUES (
+            :player_id, :game_id, :pa, :ab, :r, :h, :d, :t, :hr, :rbi, :rbi2out, :bb, :ibb,
+            :so, :gidp, :hbp, :sh, :sf, :sb, :cs, :pos)");
+
+    let mut insert = tx.prepare(&insert_sql)?;
+    for game in gamelogs {
+        insert.execute(
+            named_params! {
+                ":player_id": &game.player_id,
+                ":game_id": &game.game_id,
+                ":pa": &game.pa,
+                ":ab": &game.ab,
+                ":r": &game.r,
+                ":h": &game.h,
+                ":d": &game.d,
+                ":t": &game.t,
+                ":hr": &game.hr,
+                ":rbi": &game.rbi,
+                ":rbi2out": &game.rbi2out,
+                ":bb": &game.bb,
+                ":ibb": &game.ibb,
+                ":so": &game.so,
+                ":gidp": &game.gidp,
+                ":hbp": &game.hbp,
+                ":sh": &game.sh,
+                ":sf": &game.sf,
+                ":sb": &game.sb,
+                ":cs": &game.cs,
+                ":pos": &game.pos,
+            }
+        )?;
+    }
+
+    Ok(())
+}
+
+
+fn insert_fielding_gamelogs(tx: &Transaction, gamelogs: &Vec<FieldingGamelog>) -> Result<(), Box<dyn Error>> {
+    let insert_sql = String::from(
+        "INSERT INTO fielding_gamelogs VALUES (
+            :player_id, :game_id, :pos, :o, :po, :a, :e, :dp, :tp, :bip, :bf)");
+
+    let mut insert = tx.prepare(&insert_sql)?;
+    for game in gamelogs {
+        insert.execute(
+            named_params! {
+                ":player_id": &game.player_id,
+                ":game_id": &game.game_id,
+                ":pos": &game.pos,
+                ":o": &game.o,
+                ":po": &game.po,
+                ":a": &game.a,
+                ":e": &game.e,
+                ":dp": &game.dp,
+                ":tp": &game.tp,
+                ":bip": &game.bip,
+                ":bf": &game.bf,
+            }
+        )?;
+    }
+
+    Ok(())
+}
+
+
+fn insert_pitching_gamelogs(tx: &Transaction, gamelogs: &Vec<PitchingGamelog>) -> Result<(), Box<dyn Error>> {
+    let insert_sql = String::from(
+        "INSERT INTO pitching_gamelogs VALUES (
+            :player_id, :game_id, :gs, :cg, :sho, :gf, :ipouts, :ab, :bf, :h, :r, :er, :hr,
+            :bb, :ibb, :so, :wp, :bk, :hbp, :gb, :fb, :p, :s, :decision)");
+
+    let mut insert = tx.prepare(&insert_sql)?;
+    for game in gamelogs {
+        insert.execute(
+            named_params! {
+                ":player_id": &game.player_id,
+                ":game_id": &game.game_id,
+                ":gs": &game.gs,
+                ":cg": &game.cg,
+                ":sho": &game.sho,
+                ":gf": &game.gf,
+                ":ipouts": &game.ipouts,
+                ":ab": &game.ab,
+                ":bf": &game.bf,
+                ":h": &game.h,
+                ":r": &game.r,
+                ":er": &game.er,
+                ":hr": &game.hr,
+                ":bb": &game.bb,
+                ":ibb": &game.ibb,
+                ":so": &game.so,
+                ":wp": &game.wp,
+                ":bk": &game.bk,
+                ":hbp": &game.hbp,
+                ":gb": &game.gb,
+                ":fb": &game.fb,
+                ":p": &game.p,
+                ":s": &game.s,
+                ":decision": &game.decision,
+            }
+        )?;
+    }
+
+    Ok(())
+}
+
+
+fn load_season_boxscores(retrosheet_dir: &path::Path, season: &String) -> Result<String, Box<dyn Error>> {
+    let season_dir = retrosheet_dir.join(season);
+    let mut cwbox = Command::new("cwbox");
+    cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
+    for entry in fs::read_dir(&season_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        match extension {
+            // Include full play-by-play and deduced play-by-play files.
+            "EVA" | "EVN" | "EVR" | "EDA" | "EDN" | "EDR" => {
+                if let Some(path_str) = path.to_str() {
+                    cwbox.arg(path_str);
+                }
+            }
+            _ => {}
+        }
+    }
+    match cwbox.output() {
+        Ok(result) => {
+            Ok(String::from_utf8(result.stdout)?)
+        }
+        Err(err) => {
+            Err(Box::new(err))
+        }
+    }
+}
+
+
+fn find_game_id(element: &BytesStart) -> String {
+    let mut game_id = String::new();
+
+    for attribute in element.attributes() {
+        match attribute {
+            Ok(attr) => {
+                match attr.key.local_name().as_ref() {
+                    b"game_id" => {
+                        game_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    _ => {
+                    }
+                }
+            }
+            Err(_e) => {}
+        }
+    }
+
+    game_id
+}
+
+
+fn find_player_info(element: &BytesStart) -> (String, String) {
+    let mut player_id = String::new();
+    let mut positions = String::new();
+
+    for attribute in element.attributes() {
+        match attribute {
+            Ok(attr) => {
+                match attr.key.local_name().as_ref() {
+                    b"id" => {
+                        player_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    b"pos" => {
+                        positions.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    _ => {
+                    }
+                }
+            }
+            Err(_e) => {}
+        }
+    }
+
+    (player_id, positions)
+}
+
+
+fn parse_boxscores(retrosheet_dir: &path::Path, season: &String) -> Result<(Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>), Box<dyn Error>> {
+    let mut batting_gamelogs = Vec::new();
+    let mut pitching_gamelogs = Vec::new();
+    let mut fielding_gamelogs = Vec::new();
+
+    let xml = load_season_boxscores(retrosheet_dir, &season)?;
+    let mut reader = Reader::from_str(&xml);
+    reader.config_mut().trim_text(true);
+    let mut buffer = Vec::new();
+
+    let mut active_player = None;
+    let mut active_player_pos = None;
+    let mut active_game = None;
+    loop {
+        match reader.read_event_into(&mut buffer) {
+            Ok(Event::Eof) => break,
+            Ok(Event::Start(e)) => {
+                match e.name().as_ref() {
+                    b"boxscore" => {
+                        active_game = Some(find_game_id(&e));
+                    }
+                    b"player" => {
+                        let (player_id, positions) = find_player_info(&e);
+                        active_player = Some(player_id);
+                        active_player_pos = Some(positions);
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                match e.name().as_ref() {
+                    b"boxscore" => {
+                        active_game = None;
+                    }
+                    b"player" => {
+                        active_player = None;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                match e.name().as_ref() {
+                    b"batting" => {
+                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
+                        let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let batting = BattingGamelog::from_element(
+                            &e, &game, &player, &positions);
+                        batting_gamelogs.push(batting);
+                    }
+                    b"pitcher" => {
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let pitcher = PitchingGamelog::from_element(
+                            &e, &game);
+                        pitching_gamelogs.push(pitcher);
+                    }
+                    b"fielding" => {
+                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let fielding = FieldingGamelog::from_element(
+                            &e, &game, &player);
+                        fielding_gamelogs.push(fielding);
+                    }
+                    _ => {}
+                }
+            }
+            Err(e) => {
+                eprintln!("Error at position {}: {:?}", reader.error_position(), e);
+                break;
+            }
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
+}
+
+
+fn load_gamelogs(conn: &mut Connection, retrosheet_dir: &path::Path, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
+    if initialize {
+        println!("Creating gamelog tables");
+        create_batting_gamelogs_table(conn)?;
+        create_fielding_gamelogs_table(conn)?;
+        create_pitching_gamelogs_table(conn)?;
+    }
+
+    for season in seasons {
+        println!("Parsing {} season", season);
+        let boxscores = parse_boxscores(retrosheet_dir, &season)?;
+
+        let tx = conn.transaction().expect("Could not create transaction");
+        insert_batting_gamelogs(&tx, &boxscores.0)?;
+        insert_fielding_gamelogs(&tx, &boxscores.1)?;
+        insert_pitching_gamelogs(&tx, &boxscores.2)?;
+        tx.commit().expect("Failed to commit transaction");
+    }
+
+    if initialize {
+        println!("Creating gamelog indexes");
+        conn.execute_batch(
+            "
+            CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
+            CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
+            CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
+            CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
+            CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
+            CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
+            "
+        )?;
+    }
+
+    Ok(())
 }
 
 
@@ -236,8 +643,19 @@ fn run() -> Result<(), Box<dyn Error>> {
     let database = args.database.unwrap_or(path::PathBuf::from("database.db"));
     let mut connection = Connection::open(database)?;
 
+    let seasons = args.seasons;
+
     if let Some(register_path) = args.register_dir {
         load_people_files(&mut connection, &register_path, args.init);
+    }
+
+    if args.gamelogs {
+        if let Some(retrosheet_dir) = args.retrosheet_dir {
+            load_gamelogs(&mut connection, &retrosheet_dir, &seasons, args.init);
+        }
+        else {
+            eprintln!("Cannot load gamelogs without retrosheet directory.");
+        }
     }
 
     Ok(())

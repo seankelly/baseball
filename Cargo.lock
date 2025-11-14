@@ -79,6 +79,7 @@ name = "baseball"
 version = "0.1.0"
 dependencies = [
  "csv",
+ "quick-xml",
  "serde",
  "serde_derive",
 ]
