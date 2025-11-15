@@ -1,7 +1,9 @@
+use std::borrow::Borrow;
 use std::default::Default;
 use std::str;
 
-use quick_xml::events::BytesStart;
+use quick_xml::events::{BytesStart, Event};
+use quick_xml::reader::Reader;
 use serde::Serialize;
 use serde_derive::Deserialize;
 
@@ -230,4 +232,131 @@ impl PitchingGamelog {
 
         return pitching;
     }
+}
+
+
+fn find_game_id(element: &BytesStart) -> String {
+    let mut game_id = String::new();
+
+    for attribute in element.attributes() {
+        match attribute {
+            Ok(attr) => {
+                match attr.key.local_name().as_ref() {
+                    b"game_id" => {
+                        game_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    _ => {
+                    }
+                }
+            }
+            Err(_e) => {}
+        }
+    }
+
+    game_id
+}
+
+
+fn find_player_info(element: &BytesStart) -> (String, String) {
+    let mut player_id = String::new();
+    let mut positions = String::new();
+
+    for attribute in element.attributes() {
+        match attribute {
+            Ok(attr) => {
+                match attr.key.local_name().as_ref() {
+                    b"id" => {
+                        player_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    b"pos" => {
+                        positions.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
+                    }
+                    _ => {
+                    }
+                }
+            }
+            Err(_e) => {}
+        }
+    }
+
+    (player_id, positions)
+}
+
+
+pub fn gamelogs_from_boxscores(boxsore_xml: &str) -> (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>) {
+    let mut batting_gamelogs = Vec::new();
+    let mut pitching_gamelogs = Vec::new();
+    let mut fielding_gamelogs = Vec::new();
+
+    let mut reader = Reader::from_str(boxsore_xml);
+    reader.config_mut().trim_text(true);
+    let mut buffer = Vec::new();
+
+    let mut active_player = None;
+    let mut active_player_pos = None;
+    let mut active_game = None;
+    loop {
+        match reader.read_event_into(&mut buffer) {
+            Ok(Event::Eof) => break,
+            Ok(Event::Start(e)) => {
+                match e.name().as_ref() {
+                    b"boxscore" => {
+                        active_game = Some(find_game_id(&e));
+                    }
+                    b"player" => {
+                        let (player_id, positions) = find_player_info(&e);
+                        active_player = Some(player_id);
+                        active_player_pos = Some(positions);
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(e)) => {
+                match e.name().as_ref() {
+                    b"boxscore" => {
+                        active_game = None;
+                    }
+                    b"player" => {
+                        active_player = None;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Empty(e)) => {
+                match e.name().as_ref() {
+                    b"batting" => {
+                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
+                        let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let batting = BattingGamelog::from_element(
+                            &e, &game, &player, &positions);
+                        batting_gamelogs.push(batting);
+                    }
+                    b"pitcher" => {
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let pitcher = PitchingGamelog::from_element(
+                            &e, &game);
+                        pitching_gamelogs.push(pitcher);
+                    }
+                    b"fielding" => {
+                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let fielding = FieldingGamelog::from_element(
+                            &e, &game, &player);
+                        fielding_gamelogs.push(fielding);
+                    }
+                    _ => {}
+                }
+            }
+            Err(e) => {
+                eprintln!("Error at position {}: {:?}", reader.error_position(), e);
+                break;
+            }
+            _ => {}
+        }
+
+        buffer.clear();
+    }
+
+    (batting_gamelogs, fielding_gamelogs, pitching_gamelogs)
 }

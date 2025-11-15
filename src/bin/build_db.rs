@@ -1,16 +1,13 @@
-use std::borrow::Borrow;
 use std::error::Error;
 use std::fs;
 use std::path;
 use std::process::Command;
 
 use baseball::register::Person;
-use baseball::chadwick::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
 
 use clap::Parser;
 use csv::ReaderBuilder;
-use quick_xml::events::{BytesStart, Event};
-use quick_xml::reader::Reader;
 use rusqlite::{Connection, Result, Transaction, named_params};
 
 
@@ -266,134 +263,6 @@ fn load_season_boxscores(retrosheet_dir: &path::Path, season: &String) -> Result
 }
 
 
-fn find_game_id(element: &BytesStart) -> String {
-    let mut game_id = String::new();
-
-    for attribute in element.attributes() {
-        match attribute {
-            Ok(attr) => {
-                match attr.key.local_name().as_ref() {
-                    b"game_id" => {
-                        game_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    _ => {
-                    }
-                }
-            }
-            Err(_e) => {}
-        }
-    }
-
-    game_id
-}
-
-
-fn find_player_info(element: &BytesStart) -> (String, String) {
-    let mut player_id = String::new();
-    let mut positions = String::new();
-
-    for attribute in element.attributes() {
-        match attribute {
-            Ok(attr) => {
-                match attr.key.local_name().as_ref() {
-                    b"id" => {
-                        player_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    b"pos" => {
-                        positions.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    _ => {
-                    }
-                }
-            }
-            Err(_e) => {}
-        }
-    }
-
-    (player_id, positions)
-}
-
-
-fn parse_boxscores(retrosheet_dir: &path::Path, season: &String) -> Result<(Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>), Box<dyn Error>> {
-    let mut batting_gamelogs = Vec::new();
-    let mut pitching_gamelogs = Vec::new();
-    let mut fielding_gamelogs = Vec::new();
-
-    let xml = load_season_boxscores(retrosheet_dir, &season)?;
-    let mut reader = Reader::from_str(&xml);
-    reader.config_mut().trim_text(true);
-    let mut buffer = Vec::new();
-
-    let mut active_player = None;
-    let mut active_player_pos = None;
-    let mut active_game = None;
-    loop {
-        match reader.read_event_into(&mut buffer) {
-            Ok(Event::Eof) => break,
-            Ok(Event::Start(e)) => {
-                match e.name().as_ref() {
-                    b"boxscore" => {
-                        active_game = Some(find_game_id(&e));
-                    }
-                    b"player" => {
-                        let (player_id, positions) = find_player_info(&e);
-                        active_player = Some(player_id);
-                        active_player_pos = Some(positions);
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::End(e)) => {
-                match e.name().as_ref() {
-                    b"boxscore" => {
-                        active_game = None;
-                    }
-                    b"player" => {
-                        active_player = None;
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::Empty(e)) => {
-                match e.name().as_ref() {
-                    b"batting" => {
-                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
-                        let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
-                        let batting = BattingGamelog::from_element(
-                            &e, &game, &player, &positions);
-                        batting_gamelogs.push(batting);
-                    }
-                    b"pitcher" => {
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
-                        let pitcher = PitchingGamelog::from_element(
-                            &e, &game);
-                        pitching_gamelogs.push(pitcher);
-                    }
-                    b"fielding" => {
-                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
-                        let fielding = FieldingGamelog::from_element(
-                            &e, &game, &player);
-                        fielding_gamelogs.push(fielding);
-                    }
-                    _ => {}
-                }
-            }
-            Err(e) => {
-                eprintln!("Error at position {}: {:?}", reader.error_position(), e);
-                break;
-            }
-            _ => {}
-        }
-
-        buffer.clear();
-    }
-
-    Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
-}
-
-
 fn load_gamelogs(conn: &mut Connection, retrosheet_dir: &path::Path, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
     if initialize {
         println!("Creating gamelog tables");
@@ -404,12 +273,13 @@ fn load_gamelogs(conn: &mut Connection, retrosheet_dir: &path::Path, seasons: &V
 
     for season in seasons {
         println!("Parsing {} season", season);
-        let boxscores = parse_boxscores(retrosheet_dir, &season)?;
+        let xml = load_season_boxscores(retrosheet_dir, &season)?;
+        let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(&xml);
 
         let tx = conn.transaction().expect("Could not create transaction");
-        insert_batting_gamelogs(&tx, &boxscores.0)?;
-        insert_fielding_gamelogs(&tx, &boxscores.1)?;
-        insert_pitching_gamelogs(&tx, &boxscores.2)?;
+        insert_batting_gamelogs(&tx, &batting_gamelogs)?;
+        insert_fielding_gamelogs(&tx, &fielding_gamelogs)?;
+        insert_pitching_gamelogs(&tx, &pitching_gamelogs)?;
         tx.commit().expect("Failed to commit transaction");
     }
 
@@ -650,8 +520,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 
     if args.gamelogs {
-        if let Some(retrosheet_dir) = args.retrosheet_dir {
-            load_gamelogs(&mut connection, &retrosheet_dir, &seasons, args.init);
+        if let Some(ref retrosheet_dir) = args.retrosheet_dir {
+            load_gamelogs(&mut connection, retrosheet_dir, &seasons, args.init);
         }
         else {
             eprintln!("Cannot load gamelogs without retrosheet directory.");
