@@ -3,7 +3,7 @@ use std::error::Error;
 use crate::search::CelSearch;
 
 use baseball::chadwick;
-use cel_interpreter::Context;
+use cel::Context;
 
 
 impl CelSearch for chadwick::gamelogs::BattingGamelog {

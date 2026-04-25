@@ -2,10 +2,10 @@
 name = "baseball"
 version = "0.1.0"
 authors = ["Sean Kelly <code@katron.org>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 csv = "1.0.0"
-quick-xml = "0.37.3"
+quick-xml = "0.39.0"
 serde = { version = "1.0.43", features = ["derive"] }
 serde_derive = "1.0.43"

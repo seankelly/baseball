@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use cel_interpreter::{Context, Program, Value};
+use cel::{Context, Program, Value};
 use rayon::prelude::*;
 
 

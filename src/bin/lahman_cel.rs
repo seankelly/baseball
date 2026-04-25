@@ -5,7 +5,7 @@ use std::path;
 
 use baseball::lahman;
 
-use cel_interpreter::{Context, Program, Value};
+use cel::{Context, Program, Value};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use csv::Writer;
 use serde::de::DeserializeOwned;
