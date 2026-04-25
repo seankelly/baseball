@@ -1,10 +1,12 @@
 use std::error::Error;
 use std::fs;
+use std::io;
 use std::path;
 use std::process::Command;
 
 use baseball::register::Person;
 use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball::chadwick::games;
 
 use clap::Parser;
 use csv::ReaderBuilder;
@@ -22,6 +24,9 @@ struct DatabaseArgs {
     #[arg(short = 'G', long)]
     gamelogs: bool,
 
+    #[arg(short, long)]
+    games: bool,
+
     #[arg(short = 'R', long)]
     register_dir: Option<path::PathBuf>,
 
@@ -32,272 +37,421 @@ struct DatabaseArgs {
 }
 
 
-// SQL interaction section.
-fn create_batting_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    conn.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
-    conn.execute(
-        "CREATE TABLE batting_gamelogs (
-            player_id TEXT NOT NULL,
-            game_id TEXT NOT NULL,
-            pa INTEGER,
-            ab INTEGER,
-            r INTEGER,
-            h INTEGER,
-            d INTEGER,
-            t INTEGER,
-            hr INTEGER,
-            rbi INTEGER,
-            rbi2out INTEGER,
-            bb INTEGER,
-            ibb INTEGER,
-            so INTEGER,
-            gidp INTEGER,
-            hbp INTEGER,
-            sh INTEGER,
-            sf INTEGER,
-            sb INTEGER,
-            cs INTEGER,
-            pos TEXT
-        )",
-        ()
-    )?;
-
-    Ok(())
+struct GameLoader<'a> {
+    conn: &'a mut Connection,
+    retrosheet_dir: path::PathBuf,
 }
 
 
-fn create_fielding_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    conn.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
-    conn.execute(
-        "CREATE TABLE fielding_gamelogs (
-            player_id TEXT NOT NULL,
-            game_id TEXT NOT NULL,
-            pos INTEGER,
-            o INTEGER,
-            po INTEGER,
-            a INTEGER,
-            e INTEGER,
-            dp INTEGER,
-            tp INTEGER,
-            bip INTEGER,
-            bf INTEGER
-        )",
-        ()
-    )?;
-
-    Ok(())
-}
-
-
-fn create_pitching_gamelogs_table(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    conn.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
-    conn.execute(
-        "CREATE TABLE pitching_gamelogs (
-            player_id TEXT NOT NULL,
-            game_id TEXT NOT NULL,
-            gs INTEGER,
-            cg INTEGER,
-            sho INTEGER,
-            gf INTEGER,
-            ipouts INTEGER,
-            ab INTEGER,
-            bf INTEGER,
-            h INTEGER,
-            r INTEGER,
-            er INTEGER,
-            hr INTEGER,
-            bb INTEGER,
-            ibb INTEGER,
-            so INTEGER,
-            wp INTEGER,
-            bk INTEGER,
-            hbp INTEGER,
-            gb INTEGER,
-            fb INTEGER,
-            p INTEGER,
-            s INTEGER,
-            decision TEXT
-        )",
-        ()
-    )?;
-
-    Ok(())
-}
-
-
-fn insert_batting_gamelogs(tx: &Transaction, gamelogs: &Vec<BattingGamelog>) -> Result<(), Box<dyn Error>> {
-    let insert_sql = String::from(
-        "INSERT INTO batting_gamelogs VALUES (
-            :player_id, :game_id, :pa, :ab, :r, :h, :d, :t, :hr, :rbi, :rbi2out, :bb, :ibb,
-            :so, :gidp, :hbp, :sh, :sf, :sb, :cs, :pos)");
-
-    let mut insert = tx.prepare(&insert_sql)?;
-    for game in gamelogs {
-        insert.execute(
-            named_params! {
-                ":player_id": &game.player_id,
-                ":game_id": &game.game_id,
-                ":pa": &game.pa,
-                ":ab": &game.ab,
-                ":r": &game.r,
-                ":h": &game.h,
-                ":d": &game.d,
-                ":t": &game.t,
-                ":hr": &game.hr,
-                ":rbi": &game.rbi,
-                ":rbi2out": &game.rbi2out,
-                ":bb": &game.bb,
-                ":ibb": &game.ibb,
-                ":so": &game.so,
-                ":gidp": &game.gidp,
-                ":hbp": &game.hbp,
-                ":sh": &game.sh,
-                ":sf": &game.sf,
-                ":sb": &game.sb,
-                ":cs": &game.cs,
-                ":pos": &game.pos,
-            }
-        )?;
+impl<'a> GameLoader<'a> {
+    fn new(conn: &'a mut Connection, retrosheet_dir: path::PathBuf) -> Self {
+        Self {
+            conn,
+            retrosheet_dir
+        }
     }
 
-    Ok(())
-}
-
-
-fn insert_fielding_gamelogs(tx: &Transaction, gamelogs: &Vec<FieldingGamelog>) -> Result<(), Box<dyn Error>> {
-    let insert_sql = String::from(
-        "INSERT INTO fielding_gamelogs VALUES (
-            :player_id, :game_id, :pos, :o, :po, :a, :e, :dp, :tp, :bip, :bf)");
-
-    let mut insert = tx.prepare(&insert_sql)?;
-    for game in gamelogs {
-        insert.execute(
-            named_params! {
-                ":player_id": &game.player_id,
-                ":game_id": &game.game_id,
-                ":pos": &game.pos,
-                ":o": &game.o,
-                ":po": &game.po,
-                ":a": &game.a,
-                ":e": &game.e,
-                ":dp": &game.dp,
-                ":tp": &game.tp,
-                ":bip": &game.bip,
-                ":bf": &game.bf,
-            }
+    // SQL interaction section.
+    fn create_games_table(&mut self) -> Result<(), Box<dyn Error>> {
+        self.conn.execute("DROP TABLE IF EXISTS games", ())?;
+        self.conn.execute(
+            "CREATE TABLE games (
+                game_id TEXT NOT NULL,
+                date TEXT,
+                start_time TEXT,
+                game_number INTEGER,
+                dh_used INTEGER,
+                day_night TEXT,
+                away_team TEXT,
+                home_team TEXT,
+                park TEXT,
+                attendance INTEGER,
+                pitch_info INTEGER,
+                temperature INTEGER,
+                wind_direction INTEGER,
+                wind_speed INTEGER,
+                field_condition INTEGER,
+                precipitation INTEGER,
+                sky INTEGER,
+                game_time INTEGER,
+                innings INTEGER,
+                game_type TEXT
+            )",
+            ()
         )?;
+
+        Ok(())
     }
 
-    Ok(())
-}
+    fn insert_games(tx: &Transaction, games: &Vec<games::Game>) -> Result<(), Box<dyn Error>> {
+        let insert_sql = String::from(
+            "INSERT INTO games VALUES (
+                :game_id, :date, :start_time, :game_number, :dh_used, :day_night, :away_team,
+                :home_team, :park, :attendance, :pitch_info, :temperature, :wind_direction,
+                :wind_speed, :field_condition, :precipitation, :sky, :game_time, :innings,
+                :game_type)");
 
+        let mut insert = tx.prepare(&insert_sql)?;
+        for game in games {
+            insert.execute(
+                named_params! {
+                    ":game_id": &game.game_id,
+                    ":date": &game.date,
+                    ":start_time": &game.start_time,
+                    ":game_number": &game.game_number,
+                    ":dh_used": &game.dh_used,
+                    ":day_night": &game.day_night,
+                    ":away_team": &game.away_team,
+                    ":home_team": &game.home_team,
+                    ":park": &game.park,
+                    ":attendance": &game.attendance,
+                    ":pitch_info": &game.pitch_info,
+                    ":temperature": &game.temperature,
+                    ":wind_direction": &game.wind_direction,
+                    ":wind_speed": &game.wind_speed,
+                    ":field_condition": &game.field_condition,
+                    ":precipitation": &game.precipitation,
+                    ":sky": &game.sky,
+                    ":game_time": &game.game_time,
+                    ":innings": &game.innings,
+                    ":game_type": &game.game_type,
+                }
+            )?;
+        }
 
-fn insert_pitching_gamelogs(tx: &Transaction, gamelogs: &Vec<PitchingGamelog>) -> Result<(), Box<dyn Error>> {
-    let insert_sql = String::from(
-        "INSERT INTO pitching_gamelogs VALUES (
-            :player_id, :game_id, :gs, :cg, :sho, :gf, :ipouts, :ab, :bf, :h, :r, :er, :hr,
-            :bb, :ibb, :so, :wp, :bk, :hbp, :gb, :fb, :p, :s, :decision)");
-
-    let mut insert = tx.prepare(&insert_sql)?;
-    for game in gamelogs {
-        insert.execute(
-            named_params! {
-                ":player_id": &game.player_id,
-                ":game_id": &game.game_id,
-                ":gs": &game.gs,
-                ":cg": &game.cg,
-                ":sho": &game.sho,
-                ":gf": &game.gf,
-                ":ipouts": &game.ipouts,
-                ":ab": &game.ab,
-                ":bf": &game.bf,
-                ":h": &game.h,
-                ":r": &game.r,
-                ":er": &game.er,
-                ":hr": &game.hr,
-                ":bb": &game.bb,
-                ":ibb": &game.ibb,
-                ":so": &game.so,
-                ":wp": &game.wp,
-                ":bk": &game.bk,
-                ":hbp": &game.hbp,
-                ":gb": &game.gb,
-                ":fb": &game.fb,
-                ":p": &game.p,
-                ":s": &game.s,
-                ":decision": &game.decision,
+        Ok(())
+    }
+    fn load_season_games(&self, season: &String) -> Result<Vec<games::Game>, Box<dyn Error>> {
+        let season_dir = self.retrosheet_dir.join(season);
+        let mut cwgame = Command::new("cwgame");
+        cwgame.args(["-q", "-y", season, "-f", "0-2,4-9,18,25-33,84",]).current_dir(&season_dir);
+        cwgame.args(find_boxscore_files(&season_dir)?);
+        match cwgame.output() {
+            Ok(result) => {
+                let game_buffer = io::Cursor::new(result.stdout);
+                Ok(games::Game::load(game_buffer))
             }
-        )?;
+            Err(err) => {
+                Err(Box::new(err))
+            }
+        }
     }
 
-    Ok(())
+    fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
+        if initialize {
+            println!("Creating games tables");
+            self.create_games_table()?;
+        }
+
+        for season in seasons {
+            println!("Loading games from {} season", season);
+            let games = self.load_season_games(season)?;
+            println!("Found {} games", games.len());
+
+            let tx = self.conn.transaction().expect("Could not create transaction");
+            Self::insert_games(&tx, &games)?;
+            tx.commit().expect("Failed to commit transaction");
+        }
+
+        if initialize {
+            println!("Creating game indexes");
+            self.conn.execute_batch(
+                "
+                CREATE INDEX games_game_idx ON games (game_id);
+                CREATE INDEX games_away_idx ON games (away_team);
+                CREATE INDEX games_home_idx ON games (home_team);
+                CREATE INDEX games_type_idx ON games (game_type);
+                "
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 
-fn load_season_boxscores(retrosheet_dir: &path::Path, season: &String) -> Result<String, Box<dyn Error>> {
-    let season_dir = retrosheet_dir.join(season);
-    let mut cwbox = Command::new("cwbox");
-    cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
-    for entry in fs::read_dir(&season_dir)? {
+struct PlayerGamelogs<'a> {
+    conn: &'a mut Connection,
+    retrosheet_dir: path::PathBuf,
+}
+
+
+impl<'a> PlayerGamelogs<'a> {
+    fn new(conn: &'a mut Connection, retrosheet_dir: path::PathBuf) -> Self {
+        Self {
+            conn,
+            retrosheet_dir
+        }
+    }
+
+    fn create_batting_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
+        self.conn.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
+        self.conn.execute(
+            "CREATE TABLE batting_gamelogs (
+                player_id TEXT NOT NULL,
+                game_id TEXT NOT NULL,
+                pa INTEGER,
+                ab INTEGER,
+                r INTEGER,
+                h INTEGER,
+                d INTEGER,
+                t INTEGER,
+                hr INTEGER,
+                rbi INTEGER,
+                rbi2out INTEGER,
+                bb INTEGER,
+                ibb INTEGER,
+                so INTEGER,
+                gidp INTEGER,
+                hbp INTEGER,
+                sh INTEGER,
+                sf INTEGER,
+                sb INTEGER,
+                cs INTEGER,
+                pos TEXT
+            )",
+            ()
+        )?;
+
+        Ok(())
+    }
+
+    fn create_fielding_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
+        self.conn.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
+        self.conn.execute(
+            "CREATE TABLE fielding_gamelogs (
+                player_id TEXT NOT NULL,
+                game_id TEXT NOT NULL,
+                pos INTEGER,
+                o INTEGER,
+                po INTEGER,
+                a INTEGER,
+                e INTEGER,
+                dp INTEGER,
+                tp INTEGER,
+                bip INTEGER,
+                bf INTEGER
+            )",
+            ()
+        )?;
+
+        Ok(())
+    }
+
+    fn create_pitching_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
+        self.conn.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
+        self.conn.execute(
+            "CREATE TABLE pitching_gamelogs (
+                player_id TEXT NOT NULL,
+                game_id TEXT NOT NULL,
+                gs INTEGER,
+                cg INTEGER,
+                sho INTEGER,
+                gf INTEGER,
+                ipouts INTEGER,
+                ab INTEGER,
+                bf INTEGER,
+                h INTEGER,
+                r INTEGER,
+                er INTEGER,
+                hr INTEGER,
+                bb INTEGER,
+                ibb INTEGER,
+                so INTEGER,
+                wp INTEGER,
+                bk INTEGER,
+                hbp INTEGER,
+                gb INTEGER,
+                fb INTEGER,
+                p INTEGER,
+                s INTEGER,
+                decision TEXT
+            )",
+            ()
+        )?;
+
+        Ok(())
+    }
+
+    fn insert_batting_gamelogs(tx: &Transaction, gamelogs: &Vec<BattingGamelog>) -> Result<(), Box<dyn Error>> {
+        let insert_sql = String::from(
+            "INSERT INTO batting_gamelogs VALUES (
+                :player_id, :game_id, :pa, :ab, :r, :h, :d, :t, :hr, :rbi, :rbi2out, :bb, :ibb,
+                :so, :gidp, :hbp, :sh, :sf, :sb, :cs, :pos)");
+
+        let mut insert = tx.prepare(&insert_sql)?;
+        for game in gamelogs {
+            insert.execute(
+                named_params! {
+                    ":player_id": &game.player_id,
+                    ":game_id": &game.game_id,
+                    ":pa": &game.pa,
+                    ":ab": &game.ab,
+                    ":r": &game.r,
+                    ":h": &game.h,
+                    ":d": &game.d,
+                    ":t": &game.t,
+                    ":hr": &game.hr,
+                    ":rbi": &game.rbi,
+                    ":rbi2out": &game.rbi2out,
+                    ":bb": &game.bb,
+                    ":ibb": &game.ibb,
+                    ":so": &game.so,
+                    ":gidp": &game.gidp,
+                    ":hbp": &game.hbp,
+                    ":sh": &game.sh,
+                    ":sf": &game.sf,
+                    ":sb": &game.sb,
+                    ":cs": &game.cs,
+                    ":pos": &game.pos,
+                }
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn insert_fielding_gamelogs(tx: &Transaction, gamelogs: &Vec<FieldingGamelog>) -> Result<(), Box<dyn Error>> {
+        let insert_sql = String::from(
+            "INSERT INTO fielding_gamelogs VALUES (
+                :player_id, :game_id, :pos, :o, :po, :a, :e, :dp, :tp, :bip, :bf)");
+
+        let mut insert = tx.prepare(&insert_sql)?;
+        for game in gamelogs {
+            insert.execute(
+                named_params! {
+                    ":player_id": &game.player_id,
+                    ":game_id": &game.game_id,
+                    ":pos": &game.pos,
+                    ":o": &game.o,
+                    ":po": &game.po,
+                    ":a": &game.a,
+                    ":e": &game.e,
+                    ":dp": &game.dp,
+                    ":tp": &game.tp,
+                    ":bip": &game.bip,
+                    ":bf": &game.bf,
+                }
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn insert_pitching_gamelogs(tx: &Transaction, gamelogs: &Vec<PitchingGamelog>) -> Result<(), Box<dyn Error>> {
+        let insert_sql = String::from(
+            "INSERT INTO pitching_gamelogs VALUES (
+                :player_id, :game_id, :gs, :cg, :sho, :gf, :ipouts, :ab, :bf, :h, :r, :er, :hr,
+                :bb, :ibb, :so, :wp, :bk, :hbp, :gb, :fb, :p, :s, :decision)");
+
+        let mut insert = tx.prepare(&insert_sql)?;
+        for game in gamelogs {
+            insert.execute(
+                named_params! {
+                    ":player_id": &game.player_id,
+                    ":game_id": &game.game_id,
+                    ":gs": &game.gs,
+                    ":cg": &game.cg,
+                    ":sho": &game.sho,
+                    ":gf": &game.gf,
+                    ":ipouts": &game.ipouts,
+                    ":ab": &game.ab,
+                    ":bf": &game.bf,
+                    ":h": &game.h,
+                    ":r": &game.r,
+                    ":er": &game.er,
+                    ":hr": &game.hr,
+                    ":bb": &game.bb,
+                    ":ibb": &game.ibb,
+                    ":so": &game.so,
+                    ":wp": &game.wp,
+                    ":bk": &game.bk,
+                    ":hbp": &game.hbp,
+                    ":gb": &game.gb,
+                    ":fb": &game.fb,
+                    ":p": &game.p,
+                    ":s": &game.s,
+                    ":decision": &game.decision,
+                }
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn load_season_boxscores(&self, season: &String) -> Result<String, Box<dyn Error>> {
+        let season_dir = self.retrosheet_dir.join(season);
+        let mut cwbox = Command::new("cwbox");
+        cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
+        cwbox.args(find_boxscore_files(&season_dir)?);
+        match cwbox.output() {
+            Ok(result) => {
+                Ok(String::from_utf8(result.stdout)?)
+            }
+            Err(err) => {
+                Err(Box::new(err))
+            }
+        }
+    }
+
+    fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
+        if initialize {
+            println!("Creating gamelog tables");
+            self.create_batting_gamelogs_table()?;
+            self.create_fielding_gamelogs_table()?;
+            self.create_pitching_gamelogs_table()?;
+        }
+
+        for season in seasons {
+            println!("Loading player game logs from {} season", season);
+            let xml = self.load_season_boxscores(&season)?;
+            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(&xml);
+
+            let tx = self.conn.transaction().expect("Could not create transaction");
+            Self::insert_batting_gamelogs(&tx, &batting_gamelogs)?;
+            Self::insert_fielding_gamelogs(&tx, &fielding_gamelogs)?;
+            Self::insert_pitching_gamelogs(&tx, &pitching_gamelogs)?;
+            tx.commit().expect("Failed to commit transaction");
+        }
+
+        if initialize {
+            println!("Creating gamelog indexes");
+            self.conn.execute_batch(
+                "
+                CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
+                CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
+                CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
+                CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
+                CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
+                CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
+                "
+            )?;
+        }
+
+        Ok(())
+    }
+}
+
+
+fn find_boxscore_files(season_dir: &path::Path) -> Result<Vec<String>, Box<dyn Error>> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(season_dir)? {
         let entry = entry?;
         let path = entry.path();
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         match extension {
-            // Include full play-by-play and deduced play-by-play files.
-            "EVA" | "EVN" | "EVR" | "EDA" | "EDN" | "EDR" => {
+            // Include only the boxscore files because they're simpler and enough to get the stats
+            // for every player.
+            "EBA" | "EBN" | "EBR" => {
                 if let Some(path_str) = path.to_str() {
-                    cwbox.arg(path_str);
+                    files.push(path_str.to_string());
                 }
             }
             _ => {}
         }
     }
-    match cwbox.output() {
-        Ok(result) => {
-            Ok(String::from_utf8(result.stdout)?)
-        }
-        Err(err) => {
-            Err(Box::new(err))
-        }
-    }
-}
 
-
-fn load_gamelogs(conn: &mut Connection, retrosheet_dir: &path::Path, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
-    if initialize {
-        println!("Creating gamelog tables");
-        create_batting_gamelogs_table(conn)?;
-        create_fielding_gamelogs_table(conn)?;
-        create_pitching_gamelogs_table(conn)?;
-    }
-
-    for season in seasons {
-        println!("Parsing {} season", season);
-        let xml = load_season_boxscores(retrosheet_dir, &season)?;
-        let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(&xml);
-
-        let tx = conn.transaction().expect("Could not create transaction");
-        insert_batting_gamelogs(&tx, &batting_gamelogs)?;
-        insert_fielding_gamelogs(&tx, &fielding_gamelogs)?;
-        insert_pitching_gamelogs(&tx, &pitching_gamelogs)?;
-        tx.commit().expect("Failed to commit transaction");
-    }
-
-    if initialize {
-        println!("Creating gamelog indexes");
-        conn.execute_batch(
-            "
-            CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
-            CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
-            CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
-            CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
-            CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
-            CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
-            "
-        )?;
-    }
-
-    Ok(())
+    Ok(files)
 }
 
 
@@ -318,6 +472,9 @@ fn load_people_file(people_csv: &path::Path) -> Result<Vec<Person>, Box<dyn Erro
 fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initialize: bool) {
     let mut people = Vec::new();
     let data_dir = register_dir.join("data");
+
+    println!("Preparing to load register");
+
     for entry in data_dir.read_dir().expect("Failed to read register data directory") {
         if let Ok(entry) = entry {
             let file_name = entry.file_name().into_string();
@@ -503,7 +660,7 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
         ).expect("Failed to create people indexes");
     }
 
-    println!("Loaded {} entries", people.len());
+    println!("Loaded {} register entries", people.len());
 }
 
 
@@ -519,9 +676,20 @@ fn run() -> Result<(), Box<dyn Error>> {
         load_people_files(&mut connection, &register_path, args.init);
     }
 
+    if args.games {
+        if let Some(ref retrosheet_dir) = args.retrosheet_dir {
+            let mut game_loader = GameLoader::new(&mut connection, retrosheet_dir.to_owned());
+            game_loader.load(&seasons, args.init)?;
+        }
+        else {
+            eprintln!("Cannot load games without retrosheet directory.");
+        }
+    }
+
     if args.gamelogs {
         if let Some(ref retrosheet_dir) = args.retrosheet_dir {
-            load_gamelogs(&mut connection, retrosheet_dir, &seasons, args.init);
+            let mut gamelogs = PlayerGamelogs::new(&mut connection, retrosheet_dir.to_owned());
+            gamelogs.load(&seasons, args.init)?;
         }
         else {
             eprintln!("Cannot load gamelogs without retrosheet directory.");
