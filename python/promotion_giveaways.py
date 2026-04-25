@@ -105,8 +105,8 @@ def process_schedule(team_id, schedule):
             if game_type != "R":
                 continue
             status = game["status"].get("codedGameState")
-            # Only count games that finished, in preview, or scheduled.
-            if status not in ("F", "P", "S"):
+            # Only count games that finished, in preview, in progress, or scheduled.
+            if status not in ("F", "P", "I", "S"):
                 continue
             # Skip suspended games because they will show up as final on the original date.
             if "resumedFrom" in game:
@@ -152,7 +152,7 @@ def main():
     print()
 
     with open(args.data, "w", newline="") as raw_data:
-        data = csv.writer(raw_data)
+        data = csv.writer(raw_data, lineterminator="\n")
         for game in games:
             data.writerow(game.fields())
 
