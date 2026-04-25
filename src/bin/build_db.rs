@@ -1,12 +1,11 @@
 use std::error::Error;
 use std::fs;
-use std::io;
 use std::path;
 use std::process::Command;
 
 use baseball::register::Person;
+use baseball::retrosheet::game;
 use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
-use baseball::chadwick::games;
 
 use clap::Parser;
 use csv::ReaderBuilder;
@@ -56,26 +55,167 @@ impl<'a> GameLoader<'a> {
         self.conn.execute("DROP TABLE IF EXISTS games", ())?;
         self.conn.execute(
             "CREATE TABLE games (
-                game_id TEXT NOT NULL,
-                date TEXT,
-                start_time TEXT,
-                game_number INTEGER,
-                dh_used INTEGER,
+                date TEXT NOT NULL,
+                number_of_game TEXT,
+                day_of_week TEXT,
+                visitor_team TEXT NOT NULL,
+                visitor_league TEXT NOT NULL,
+                visitor_team_game_number INTEGER,
+                home_team TEXT NOT NULL,
+                home_league TEXT NOT NULL,
+                home_team_game_number INTEGER,
+                visitor_score INTEGER,
+                home_score INTEGER,
+                number_of_outs INTEGER,
                 day_night TEXT,
-                away_team TEXT,
-                home_team TEXT,
-                park TEXT,
+                completion_info TEXT,
+                forfeit_info TEXT,
+                protest_info TEXT,
+                park_id TEXT,
                 attendance INTEGER,
-                pitch_info INTEGER,
-                temperature INTEGER,
-                wind_direction INTEGER,
-                wind_speed INTEGER,
-                field_condition INTEGER,
-                precipitation INTEGER,
-                sky INTEGER,
-                game_time INTEGER,
-                innings INTEGER,
-                game_type TEXT
+                time_of_game INTEGER,
+                visitor_line_score TEXT,
+                home_line_score TEXT,
+                visitor_ab INTEGER,
+                visitor_hits INTEGER,
+                visitor_doubles INTEGER,
+                visitor_triples INTEGER,
+                visitor_homeruns INTEGER,
+                visitor_rbi INTEGER,
+                visitor_sac_hits INTEGER,
+                visitor_sac_flies INTEGER,
+                visitor_hbp INTEGER,
+                visitor_walks INTEGER,
+                visitor_intentional_walks INTEGER,
+                visitor_strikeouts INTEGER,
+                visitor_stolen_bases INTEGER,
+                visitor_caught_stealing INTEGER,
+                visitor_gidp INTEGER,
+                visitor_catcher_interference INTEGER,
+                visitor_left_on_base INTEGER,
+                visitor_pitchers_used INTEGER,
+                visitor_individual_earned_runs INTEGER,
+                visitor_team_earned_runs INTEGER,
+                visitor_wild_pitches INTEGER,
+                visitor_balks INTEGER,
+                visitor_putouts INTEGER,
+                visitor_assists INTEGER,
+                visitor_errors INTEGER,
+                visitor_passed_balls INTEGER,
+                visitor_double_plays INTEGER,
+                visitor_triple_plays INTEGER,
+                home_ab INTEGER,
+                home_hits INTEGER,
+                home_doubles INTEGER,
+                home_triples INTEGER,
+                home_homeruns INTEGER,
+                home_rbi INTEGER,
+                home_sac_hits INTEGER,
+                home_sac_flies INTEGER,
+                home_hbp INTEGER,
+                home_walks INTEGER,
+                home_intentional_walks INTEGER,
+                home_strikeouts INTEGER,
+                home_stolen_bases INTEGER,
+                home_caught_stealing INTEGER,
+                home_gidp INTEGER,
+                home_catcher_interference INTEGER,
+                home_left_on_base INTEGER,
+                home_pitchers_used INTEGER,
+                home_individual_earned_runs INTEGER,
+                home_team_earned_runs INTEGER,
+                home_wild_pitches INTEGER,
+                home_balks INTEGER,
+                home_putouts INTEGER,
+                home_assists INTEGER,
+                home_errors INTEGER,
+                home_passed_balls INTEGER,
+                home_double_plays INTEGER,
+                home_triple_plays INTEGER,
+                home_plate_umpire_name TEXT,
+                home_plate_umpire_id TEXT,
+                first_base_umpire_name TEXT,
+                first_base_umpire_id TEXT,
+                second_base_umpire_name TEXT,
+                second_base_umpire_id TEXT,
+                third_base_umpire_name TEXT,
+                third_base_umpire_id TEXT,
+                left_field_umpire_name TEXT,
+                left_field_umpire_id TEXT,
+                right_field_umpire_name TEXT,
+                right_field_umpire_id TEXT,
+                visitor_manager_name TEXT,
+                visitor_manager_id TEXT,
+                home_manager_name TEXT,
+                home_manager_id TEXT,
+                winning_pitcher_name TEXT,
+                winning_pitcher_id TEXT,
+                losing_pitcher_name TEXT,
+                losing_pitcher_id TEXT,
+                saving_pitcher_name TEXT,
+                saving_pitcher_id TEXT,
+                gwrbi_player_name TEXT,
+                gwrbi_player_id TEXT,
+                visitor_starter_name TEXT,
+                visitor_starter_id TEXT,
+                home_starter_name TEXT,
+                home_starter_id TEXT,
+                visitor_1_id TEXT,
+                visitor_1_name TEXT,
+                visitor_1_pos TEXT,
+                visitor_2_id TEXT,
+                visitor_2_name TEXT,
+                visitor_2_pos TEXT,
+                visitor_3_id TEXT,
+                visitor_3_name TEXT,
+                visitor_3_pos TEXT,
+                visitor_4_id TEXT,
+                visitor_4_name TEXT,
+                visitor_4_pos TEXT,
+                visitor_5_id TEXT,
+                visitor_5_name TEXT,
+                visitor_5_pos TEXT,
+                visitor_6_id TEXT,
+                visitor_6_name TEXT,
+                visitor_6_pos TEXT,
+                visitor_7_id TEXT,
+                visitor_7_name TEXT,
+                visitor_7_pos TEXT,
+                visitor_8_id TEXT,
+                visitor_8_name TEXT,
+                visitor_8_pos TEXT,
+                visitor_9_id TEXT,
+                visitor_9_name TEXT,
+                visitor_9_pos TEXT,
+                home_1_id TEXT,
+                home_1_name TEXT,
+                home_1_pos TEXT,
+                home_2_id TEXT,
+                home_2_name TEXT,
+                home_2_pos TEXT,
+                home_3_id TEXT,
+                home_3_name TEXT,
+                home_3_pos TEXT,
+                home_4_id TEXT,
+                home_4_name TEXT,
+                home_4_pos TEXT,
+                home_5_id TEXT,
+                home_5_name TEXT,
+                home_5_pos TEXT,
+                home_6_id TEXT,
+                home_6_name TEXT,
+                home_6_pos TEXT,
+                home_7_id TEXT,
+                home_7_name TEXT,
+                home_7_pos TEXT,
+                home_8_id TEXT,
+                home_8_name TEXT,
+                home_8_pos TEXT,
+                home_9_id TEXT,
+                home_9_name TEXT,
+                home_9_pos TEXT,
+                additional_info TEXT,
+                acquisition_info TEXT
             )",
             ()
         )?;
@@ -83,58 +223,250 @@ impl<'a> GameLoader<'a> {
         Ok(())
     }
 
-    fn insert_games(tx: &Transaction, games: &Vec<games::Game>) -> Result<(), Box<dyn Error>> {
+    fn insert_games(tx: &Transaction, games: &Vec<game::GameLog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO games VALUES (
-                :game_id, :date, :start_time, :game_number, :dh_used, :day_night, :away_team,
-                :home_team, :park, :attendance, :pitch_info, :temperature, :wind_direction,
-                :wind_speed, :field_condition, :precipitation, :sky, :game_time, :innings,
-                :game_type)");
+                :date, :number_of_game, :day_of_week, :visitor_team, :visitor_league,
+                :visitor_team_game_number, :home_team, :home_league, :home_team_game_number,
+                :visitor_score, :home_score, :number_of_outs, :day_night, :completion_info,
+                :forfeit_info, :protest_info, :park_id, :attendance, :time_of_game,
+                :visitor_line_score, :home_line_score, :visitor_ab, :visitor_hits,
+                :visitor_doubles, :visitor_triples, :visitor_homeruns, :visitor_rbi,
+                :visitor_sac_hits, :visitor_sac_flies, :visitor_hbp, :visitor_walks,
+                :visitor_intentional_walks, :visitor_strikeouts, :visitor_stolen_bases,
+                :visitor_caught_stealing, :visitor_gidp, :visitor_catcher_interference,
+                :visitor_left_on_base, :visitor_pitchers_used, :visitor_individual_earned_runs,
+                :visitor_team_earned_runs, :visitor_wild_pitches, :visitor_balks, :visitor_putouts,
+                :visitor_assists, :visitor_errors, :visitor_passed_balls, :visitor_double_plays,
+                :visitor_triple_plays, :home_ab, :home_hits, :home_doubles, :home_triples,
+                :home_homeruns, :home_rbi, :home_sac_hits, :home_sac_flies, :home_hbp, :home_walks,
+                :home_intentional_walks, :home_strikeouts, :home_stolen_bases,
+                :home_caught_stealing, :home_gidp, :home_catcher_interference, :home_left_on_base,
+                :home_pitchers_used, :home_individual_earned_runs, :home_team_earned_runs,
+                :home_wild_pitches, :home_balks, :home_putouts, :home_assists, :home_errors,
+                :home_passed_balls, :home_double_plays, :home_triple_plays,
+                :home_plate_umpire_name, :home_plate_umpire_id, :first_base_umpire_name,
+                :first_base_umpire_id, :second_base_umpire_name, :second_base_umpire_id,
+                :third_base_umpire_name, :third_base_umpire_id, :left_field_umpire_name,
+                :left_field_umpire_id, :right_field_umpire_name, :right_field_umpire_id,
+                :visitor_manager_name, :visitor_manager_id, :home_manager_name, :home_manager_id,
+                :winning_pitcher_name, :winning_pitcher_id, :losing_pitcher_name,
+                :losing_pitcher_id, :saving_pitcher_name, :saving_pitcher_id, :gwrbi_player_name,
+                :gwrbi_player_id, :visitor_starter_name, :visitor_starter_id, :home_starter_name,
+                :home_starter_id, :visitor_1_id, :visitor_1_name, :visitor_1_pos, :visitor_2_id,
+                :visitor_2_name, :visitor_2_pos, :visitor_3_id, :visitor_3_name, :visitor_3_pos,
+                :visitor_4_id, :visitor_4_name, :visitor_4_pos, :visitor_5_id, :visitor_5_name,
+                :visitor_5_pos, :visitor_6_id, :visitor_6_name, :visitor_6_pos, :visitor_7_id,
+                :visitor_7_name, :visitor_7_pos, :visitor_8_id, :visitor_8_name, :visitor_8_pos,
+                :visitor_9_id, :visitor_9_name, :visitor_9_pos, :home_1_id, :home_1_name,
+                :home_1_pos, :home_2_id, :home_2_name, :home_2_pos, :home_3_id, :home_3_name,
+                :home_3_pos, :home_4_id, :home_4_name, :home_4_pos, :home_5_id, :home_5_name,
+                :home_5_pos, :home_6_id, :home_6_name, :home_6_pos, :home_7_id, :home_7_name,
+                :home_7_pos, :home_8_id, :home_8_name, :home_8_pos, :home_9_id, :home_9_name,
+                :home_9_pos, :additional_info, :acquisition_info)");
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in games {
             insert.execute(
                 named_params! {
-                    ":game_id": &game.game_id,
                     ":date": &game.date,
-                    ":start_time": &game.start_time,
-                    ":game_number": &game.game_number,
-                    ":dh_used": &game.dh_used,
-                    ":day_night": &game.day_night,
-                    ":away_team": &game.away_team,
+                    ":number_of_game": &game.number_of_game,
+                    ":day_of_week": &game.day_of_week,
+                    ":visitor_team": &game.visitor_team,
+                    ":visitor_league": &game.visitor_league,
+                    ":visitor_team_game_number": &game.visitor_team_game_number,
                     ":home_team": &game.home_team,
-                    ":park": &game.park,
+                    ":home_league": &game.home_league,
+                    ":home_team_game_number": &game.home_team_game_number,
+                    ":visitor_score": &game.visitor_score,
+                    ":home_score": &game.home_score,
+                    ":number_of_outs": &game.number_of_outs,
+                    ":day_night": &game.day_night,
+                    ":completion_info": &game.completion_info,
+                    ":forfeit_info": &game.forfeit_info,
+                    ":protest_info": &game.protest_info,
+                    ":park_id": &game.park_id,
                     ":attendance": &game.attendance,
-                    ":pitch_info": &game.pitch_info,
-                    ":temperature": &game.temperature,
-                    ":wind_direction": &game.wind_direction,
-                    ":wind_speed": &game.wind_speed,
-                    ":field_condition": &game.field_condition,
-                    ":precipitation": &game.precipitation,
-                    ":sky": &game.sky,
-                    ":game_time": &game.game_time,
-                    ":innings": &game.innings,
-                    ":game_type": &game.game_type,
+                    ":time_of_game": &game.time_of_game,
+                    ":visitor_line_score": &game.visitor_line_score,
+                    ":home_line_score": &game.home_line_score,
+                    ":visitor_ab": &game.visitor_ab,
+                    ":visitor_hits": &game.visitor_hits,
+                    ":visitor_doubles": &game.visitor_doubles,
+                    ":visitor_triples": &game.visitor_triples,
+                    ":visitor_homeruns": &game.visitor_homeruns,
+                    ":visitor_rbi": &game.visitor_rbi,
+                    ":visitor_sac_hits": &game.visitor_sac_hits,
+                    ":visitor_sac_flies": &game.visitor_sac_flies,
+                    ":visitor_hbp": &game.visitor_hbp,
+                    ":visitor_walks": &game.visitor_walks,
+                    ":visitor_intentional_walks": &game.visitor_intentional_walks,
+                    ":visitor_strikeouts": &game.visitor_strikeouts,
+                    ":visitor_stolen_bases": &game.visitor_stolen_bases,
+                    ":visitor_caught_stealing": &game.visitor_caught_stealing,
+                    ":visitor_gidp": &game.visitor_gidp,
+                    ":visitor_catcher_interference": &game.visitor_catcher_interference,
+                    ":visitor_left_on_base": &game.visitor_left_on_base,
+                    ":visitor_pitchers_used": &game.visitor_pitchers_used,
+                    ":visitor_individual_earned_runs": &game.visitor_individual_earned_runs,
+                    ":visitor_team_earned_runs": &game.visitor_team_earned_runs,
+                    ":visitor_wild_pitches": &game.visitor_wild_pitches,
+                    ":visitor_balks": &game.visitor_balks,
+                    ":visitor_putouts": &game.visitor_putouts,
+                    ":visitor_assists": &game.visitor_assists,
+                    ":visitor_errors": &game.visitor_errors,
+                    ":visitor_passed_balls": &game.visitor_passed_balls,
+                    ":visitor_double_plays": &game.visitor_double_plays,
+                    ":visitor_triple_plays": &game.visitor_triple_plays,
+                    ":home_ab": &game.home_ab,
+                    ":home_hits": &game.home_hits,
+                    ":home_doubles": &game.home_doubles,
+                    ":home_triples": &game.home_triples,
+                    ":home_homeruns": &game.home_homeruns,
+                    ":home_rbi": &game.home_rbi,
+                    ":home_sac_hits": &game.home_sac_hits,
+                    ":home_sac_flies": &game.home_sac_flies,
+                    ":home_hbp": &game.home_hbp,
+                    ":home_walks": &game.home_walks,
+                    ":home_intentional_walks": &game.home_intentional_walks,
+                    ":home_strikeouts": &game.home_strikeouts,
+                    ":home_stolen_bases": &game.home_stolen_bases,
+                    ":home_caught_stealing": &game.home_caught_stealing,
+                    ":home_gidp": &game.home_gidp,
+                    ":home_catcher_interference": &game.home_catcher_interference,
+                    ":home_left_on_base": &game.home_left_on_base,
+                    ":home_pitchers_used": &game.home_pitchers_used,
+                    ":home_individual_earned_runs": &game.home_individual_earned_runs,
+                    ":home_team_earned_runs": &game.home_team_earned_runs,
+                    ":home_wild_pitches": &game.home_wild_pitches,
+                    ":home_balks": &game.home_balks,
+                    ":home_putouts": &game.home_putouts,
+                    ":home_assists": &game.home_assists,
+                    ":home_errors": &game.home_errors,
+                    ":home_passed_balls": &game.home_passed_balls,
+                    ":home_double_plays": &game.home_double_plays,
+                    ":home_triple_plays": &game.home_triple_plays,
+                    ":home_plate_umpire_name": &game.home_plate_umpire_name,
+                    ":home_plate_umpire_id": &game.home_plate_umpire_id,
+                    ":first_base_umpire_name": &game.first_base_umpire_name,
+                    ":first_base_umpire_id": &game.first_base_umpire_id,
+                    ":second_base_umpire_name": &game.second_base_umpire_name,
+                    ":second_base_umpire_id": &game.second_base_umpire_id,
+                    ":third_base_umpire_name": &game.third_base_umpire_name,
+                    ":third_base_umpire_id": &game.third_base_umpire_id,
+                    ":left_field_umpire_name": &game.left_field_umpire_name,
+                    ":left_field_umpire_id": &game.left_field_umpire_id,
+                    ":right_field_umpire_name": &game.right_field_umpire_name,
+                    ":right_field_umpire_id": &game.right_field_umpire_id,
+                    ":visitor_manager_name": &game.visitor_manager_name,
+                    ":visitor_manager_id": &game.visitor_manager_id,
+                    ":home_manager_name": &game.home_manager_name,
+                    ":home_manager_id": &game.home_manager_id,
+                    ":winning_pitcher_name": &game.winning_pitcher_name,
+                    ":winning_pitcher_id": &game.winning_pitcher_id,
+                    ":losing_pitcher_name": &game.losing_pitcher_name,
+                    ":losing_pitcher_id": &game.losing_pitcher_id,
+                    ":saving_pitcher_name": &game.saving_pitcher_name,
+                    ":saving_pitcher_id": &game.saving_pitcher_id,
+                    ":gwrbi_player_name": &game.gwrbi_player_name,
+                    ":gwrbi_player_id": &game.gwrbi_player_id,
+                    ":visitor_starter_name": &game.visitor_starter_name,
+                    ":visitor_starter_id": &game.visitor_starter_id,
+                    ":home_starter_name": &game.home_starter_name,
+                    ":home_starter_id": &game.home_starter_id,
+                    ":visitor_1_id": &game.visitor_1_id,
+                    ":visitor_1_name": &game.visitor_1_name,
+                    ":visitor_1_pos": &game.visitor_1_pos,
+                    ":visitor_2_id": &game.visitor_2_id,
+                    ":visitor_2_name": &game.visitor_2_name,
+                    ":visitor_2_pos": &game.visitor_2_pos,
+                    ":visitor_3_id": &game.visitor_3_id,
+                    ":visitor_3_name": &game.visitor_3_name,
+                    ":visitor_3_pos": &game.visitor_3_pos,
+                    ":visitor_4_id": &game.visitor_4_id,
+                    ":visitor_4_name": &game.visitor_4_name,
+                    ":visitor_4_pos": &game.visitor_4_pos,
+                    ":visitor_5_id": &game.visitor_5_id,
+                    ":visitor_5_name": &game.visitor_5_name,
+                    ":visitor_5_pos": &game.visitor_5_pos,
+                    ":visitor_6_id": &game.visitor_6_id,
+                    ":visitor_6_name": &game.visitor_6_name,
+                    ":visitor_6_pos": &game.visitor_6_pos,
+                    ":visitor_7_id": &game.visitor_7_id,
+                    ":visitor_7_name": &game.visitor_7_name,
+                    ":visitor_7_pos": &game.visitor_7_pos,
+                    ":visitor_8_id": &game.visitor_8_id,
+                    ":visitor_8_name": &game.visitor_8_name,
+                    ":visitor_8_pos": &game.visitor_8_pos,
+                    ":visitor_9_id": &game.visitor_9_id,
+                    ":visitor_9_name": &game.visitor_9_name,
+                    ":visitor_9_pos": &game.visitor_9_pos,
+                    ":home_1_id": &game.home_1_id,
+                    ":home_1_name": &game.home_1_name,
+                    ":home_1_pos": &game.home_1_pos,
+                    ":home_2_id": &game.home_2_id,
+                    ":home_2_name": &game.home_2_name,
+                    ":home_2_pos": &game.home_2_pos,
+                    ":home_3_id": &game.home_3_id,
+                    ":home_3_name": &game.home_3_name,
+                    ":home_3_pos": &game.home_3_pos,
+                    ":home_4_id": &game.home_4_id,
+                    ":home_4_name": &game.home_4_name,
+                    ":home_4_pos": &game.home_4_pos,
+                    ":home_5_id": &game.home_5_id,
+                    ":home_5_name": &game.home_5_name,
+                    ":home_5_pos": &game.home_5_pos,
+                    ":home_6_id": &game.home_6_id,
+                    ":home_6_name": &game.home_6_name,
+                    ":home_6_pos": &game.home_6_pos,
+                    ":home_7_id": &game.home_7_id,
+                    ":home_7_name": &game.home_7_name,
+                    ":home_7_pos": &game.home_7_pos,
+                    ":home_8_id": &game.home_8_id,
+                    ":home_8_name": &game.home_8_name,
+                    ":home_8_pos": &game.home_8_pos,
+                    ":home_9_id": &game.home_9_id,
+                    ":home_9_name": &game.home_9_name,
+                    ":home_9_pos": &game.home_9_pos,
+                    ":additional_info": &game.additional_info,
+                    ":acquisition_info": &game.acquisition_info,
                 }
             )?;
         }
 
         Ok(())
     }
-    fn load_season_games(&self, season: &String) -> Result<Vec<games::Game>, Box<dyn Error>> {
+
+    fn load_season_gamelog(&self, season: &String) -> Result<Vec<game::GameLog>, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
-        let mut cwgame = Command::new("cwgame");
-        cwgame.args(["-q", "-y", season, "-f", "0-2,4-9,18,25-33,84",]).current_dir(&season_dir);
-        cwgame.args(find_boxscore_files(&season_dir)?);
-        match cwgame.output() {
-            Ok(result) => {
-                let game_buffer = io::Cursor::new(result.stdout);
-                Ok(games::Game::load(game_buffer))
-            }
-            Err(err) => {
-                Err(Box::new(err))
+        // Chadwick's Retrosheet seasons either have a GLYYYY.TXT or glYYYY.txt file.
+        let gl_file_names = [format!("GL{}.TXT", season), format!("gl{}.txt", season)];
+        let mut gamelog_file = None;
+        for gl_file in gl_file_names {
+            let gl_path = season_dir.join(gl_file);
+            if gl_path.exists() {
+                gamelog_file = Some(gl_path);
+                break;
             }
         }
+
+        let mut games = Vec::new();
+        if let Some(gl_path) = gamelog_file {
+            let mut reader = csv::ReaderBuilder::new()
+                .has_headers(false)
+                .from_path(&gl_path)?;
+            for result in reader.deserialize() {
+                match result {
+                    Ok(game) => {
+                        games.push(game);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                    }
+                }
+            }
+        }
+        Ok(games)
     }
 
     fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
@@ -145,7 +477,7 @@ impl<'a> GameLoader<'a> {
 
         for season in seasons {
             println!("Loading games from {} season", season);
-            let games = self.load_season_games(season)?;
+            let games = self.load_season_gamelog(season)?;
             println!("Found {} games", games.len());
 
             let tx = self.conn.transaction().expect("Could not create transaction");
@@ -157,10 +489,9 @@ impl<'a> GameLoader<'a> {
             println!("Creating game indexes");
             self.conn.execute_batch(
                 "
-                CREATE INDEX games_game_idx ON games (game_id);
-                CREATE INDEX games_away_idx ON games (away_team);
+                CREATE INDEX games_date_idx ON games (date);
+                CREATE INDEX games_away_idx ON games (visitor_team);
                 CREATE INDEX games_home_idx ON games (home_team);
-                CREATE INDEX games_type_idx ON games (game_type);
                 "
             )?;
         }
