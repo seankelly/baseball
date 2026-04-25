@@ -362,7 +362,7 @@ pub struct GameLog {
     pub home_9_pos: String,
     // 160
     pub additional_info: String,
-    pub acquistion_info: String,
+    pub acquisition_info: String,
 }
 
 
@@ -545,7 +545,7 @@ pub struct TeamGameLog {
     pub opponent_9_pos: String,
     // 160
     pub additional_info: String,
-    pub acquistion_info: String,
+    pub acquisition_info: String,
 }
 
 
@@ -736,7 +736,7 @@ impl TeamGameLog {
             opponent_9_pos: game.visitor_9_pos.clone(),
             // 160
             additional_info: game.additional_info.clone(),
-            acquistion_info: game.acquistion_info.clone(),
+            acquisition_info: game.acquisition_info.clone(),
         }
     }
 
@@ -919,7 +919,7 @@ impl TeamGameLog {
             opponent_9_pos: game.home_9_pos.clone(),
             // 160
             additional_info: game.additional_info.clone(),
-            acquistion_info: game.acquistion_info.clone(),
+            acquisition_info: game.acquisition_info.clone(),
         }
     }
 }
