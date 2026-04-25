@@ -88,6 +88,15 @@ fn process_gamelog(game_log_path: &path::Path) -> Vec<GameEarnedRunDiff> {
     return games;
 }
 
+fn map_earned_runs(er: i8) -> u8 {
+    if er >= 0 {
+        er.try_into().unwrap()
+    }
+    else {
+        0
+    }
+}
+
 fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<GameEarnedRunDiff>, Box<dyn Error>> {
     let mut games = Vec::with_capacity(162);
     let mut season = 0;
@@ -114,8 +123,8 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<GameEarnedRunDiff>, Box<dyn
             if game.visitor_individual_earned_runs.is_none() {
                 continue;
             }
-            let home_er = game.home_individual_earned_runs.unwrap();
-            let away_er = game.visitor_individual_earned_runs.unwrap();
+            let home_er = map_earned_runs(game.home_individual_earned_runs.unwrap());
+            let away_er = map_earned_runs(game.visitor_individual_earned_runs.unwrap());
 
             let home_team = game.home_team;
             let away_team = game.visitor_team;
