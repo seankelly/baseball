@@ -394,6 +394,27 @@ fn process_careers(args: &LahmanArgs, seasons: &LahmanSeasons) -> Result<(), Box
 }
 
 
+fn process_seasons(args: &LahmanArgs, seasons: &LahmanSeasons) -> Result<(), Box<dyn Error>> {
+    let mut context = Context::default();
+    context.add_function("abs", |a: f64| a.abs());
+
+    let results = match seasons {
+        LahmanSeasons::Batting(s) => {
+            let mut careers = collect_batting_careers(s);
+            process_careers_generic(args, &context, &mut careers)?
+        }
+        LahmanSeasons::Pitching(s) => {
+            let mut careers = collect_pitching_careers(s);
+            process_careers_generic(args, &context, &mut careers)?
+        }
+    };
+
+    print!("{}", results);
+
+    Ok(())
+}
+
+
 fn sort_key<T: Career>(career: &T, context: &Context, program: &Program) -> f64 {
     let mut player_ctx = context.new_inner_scope();
     if let Err(_) = career.add_cel_variables(&mut player_ctx) {
@@ -428,6 +449,8 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     if args.career {
         process_careers(&args, &seasons)?;
+    }
+    if args.season {
     }
 
     Ok(())
