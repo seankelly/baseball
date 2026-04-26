@@ -138,7 +138,10 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
                 team_games.insert(teamid.clone(), Vec::with_capacity(162));
             }
             if let Some(team) = team_games.get_mut(&teamid) {
-                team.push((game.home_team_game_number, team_game_result(game.home_score, game.visitor_score)));
+                let game_number: u16 = game.home_team_game_number.parse().expect("Couldn't convert game number");
+                let home_score: u8 = game.home_score.parse().expect("Couldn't convert home score");
+                let visitor_score: u8 = game.visitor_score.parse().expect("Couldn't convert visitor score");
+                team.push((game_number, team_game_result(home_score, visitor_score)));
             }
 
             let teamid = game.visitor_team.to_owned();
@@ -146,7 +149,10 @@ fn parse_gamelog(gamelog: &path::Path) -> Result<Vec<(u16, String, String)>, Box
                 team_games.insert(teamid.clone(), Vec::with_capacity(162));
             }
             if let Some(team) = team_games.get_mut(&teamid) {
-                team.push((game.visitor_team_game_number, team_game_result(game.visitor_score, game.home_score)));
+                let game_number: u16 = game.visitor_team_game_number.parse().expect("Couldn't convert game number");
+                let home_score: u8 = game.home_score.parse().expect("Couldn't convert home score");
+                let visitor_score: u8 = game.visitor_score.parse().expect("Couldn't convert visitor score");
+                team.push((game_number, team_game_result(visitor_score, home_score)));
             }
         }
     }
