@@ -5,6 +5,7 @@ authors = ["Sean Kelly <code@katron.org>"]
 edition = "2024"
 
 [dependencies]
+chrono = { version = "0.4.44", default-features = false, features = ["alloc", "std", "clock", "now"] }
 csv = "1.0.0"
 quick-xml = "0.39.0"
 serde = { version = "1.0.43", features = ["derive"] }
