@@ -550,6 +550,29 @@ pub struct TeamGameLog {
 
 
 impl GameLog {
+    /// Create a game ID usable for cross-referencing on different platforms.
+    pub fn game_id(&self) -> String {
+        let id_len = self.home_team.len() + self.date.len() + self.number_of_game.len();
+        let mut game_id = String::with_capacity(id_len);
+        game_id.push_str(&self.home_team);
+        game_id.push_str(&self.date);
+        game_id.push_str(&self.number_of_game);
+        game_id
+    }
+
+    /// Convert the YYYYMMDD format from Retrosheet into an ISO-8601 compliant format.
+    pub fn date_iso8601(&self) -> String {
+        let mut date = String::with_capacity(10);
+        let (year, mmdd) = self.date.split_at(4);
+        let (month, day) = mmdd.split_at(2);
+        date.push_str(year);
+        date.push_str("-");
+        date.push_str(month);
+        date.push_str("-");
+        date.push_str(day);
+        date
+    }
+
     pub fn each_team_game(&self) -> (TeamGameLog, TeamGameLog) {
         (TeamGameLog::from_home_team(&self),
          TeamGameLog::from_visitor_team(&self))

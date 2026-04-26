@@ -55,6 +55,7 @@ impl<'a> GameLoader<'a> {
         self.conn.execute("DROP TABLE IF EXISTS games", ())?;
         self.conn.execute(
             "CREATE TABLE games (
+                game_id TEXT NOT NULL,
                 date TEXT NOT NULL,
                 number_of_game TEXT,
                 day_of_week TEXT,
@@ -226,7 +227,7 @@ impl<'a> GameLoader<'a> {
     fn insert_games(tx: &Transaction, games: &Vec<game::GameLog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO games VALUES (
-                :date, :number_of_game, :day_of_week, :visitor_team, :visitor_league,
+                :game_id, :date, :number_of_game, :day_of_week, :visitor_team, :visitor_league,
                 :visitor_team_game_number, :home_team, :home_league, :home_team_game_number,
                 :visitor_score, :home_score, :number_of_outs, :day_night, :completion_info,
                 :forfeit_info, :protest_info, :park_id, :attendance, :time_of_game,
@@ -269,7 +270,8 @@ impl<'a> GameLoader<'a> {
         for game in games {
             insert.execute(
                 named_params! {
-                    ":date": &game.date,
+                    ":game_id": &game.game_id(),
+                    ":date": &game.date_iso8601(),
                     ":number_of_game": &game.number_of_game,
                     ":day_of_week": &game.day_of_week,
                     ":visitor_team": &game.visitor_team,
@@ -489,6 +491,7 @@ impl<'a> GameLoader<'a> {
             println!("Creating game indexes");
             self.conn.execute_batch(
                 "
+                CREATE INDEX games_game_idx ON games (game_id);
                 CREATE INDEX games_date_idx ON games (date);
                 CREATE INDEX games_away_idx ON games (visitor_team);
                 CREATE INDEX games_home_idx ON games (home_team);
