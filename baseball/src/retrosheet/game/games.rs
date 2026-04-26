@@ -284,10 +284,10 @@ pub struct GameLog {
     pub right_field_umpire_name: String,
     pub right_field_umpire_id: String,
     // 90
-    pub visitor_manager_name: String,
     pub visitor_manager_id: String,
-    pub home_manager_name: String,
+    pub visitor_manager_name: String,
     pub home_manager_id: String,
+    pub home_manager_name: String,
     pub winning_pitcher_name: String,
     pub winning_pitcher_id: String,
     pub losing_pitcher_name: String,
