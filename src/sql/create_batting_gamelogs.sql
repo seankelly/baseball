@@ -1,0 +1,23 @@
+CREATE TABLE batting_gamelogs (
+    player_id TEXT NOT NULL,
+    game_id TEXT NOT NULL,
+    pa INTEGER,
+    ab INTEGER,
+    r INTEGER,
+    h INTEGER,
+    d INTEGER,
+    t INTEGER,
+    hr INTEGER,
+    rbi INTEGER,
+    rbi2out INTEGER,
+    bb INTEGER,
+    ibb INTEGER,
+    so INTEGER,
+    gidp INTEGER,
+    hbp INTEGER,
+    sh INTEGER,
+    sf INTEGER,
+    sb INTEGER,
+    cs INTEGER,
+    pos TEXT
+)
