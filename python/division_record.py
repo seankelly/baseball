@@ -2,6 +2,7 @@
 
 
 import argparse
+import collections
 import csv
 import datetime
 import glob
@@ -814,6 +815,50 @@ DIVISIONS = {
             'SFN',
         ],
     },
+    2025: {
+        'ALE': [
+            'BAL',
+            'BOS',
+            'NYA',
+            'TBA',
+            'TOR',
+        ],
+        'ALC': [
+            'CHA',
+            'CLE',
+            'DET',
+            'KCA',
+            'MIN',
+        ],
+        'ALW': [
+            'ANA',
+            'HOU',
+            'ATH',
+            'SEA',
+            'TEX',
+        ],
+        'NLE': [
+            'ATL',
+            'MIA',
+            'NYN',
+            'PHI',
+            'WAS',
+        ],
+        'NLC': [
+            'CHN',
+            'CIN',
+            'MIL',
+            'PIT',
+            'SLN',
+        ],
+        'NLW': [
+            'ARI',
+            'COL',
+            'LAN',
+            'SDN',
+            'SFN',
+        ],
+    },
 }
 
 
@@ -827,7 +872,7 @@ class Divisions:
         starting_years = sorted(division_history.keys())
         previous_year = starting_years[0]
         for year in starting_years[1:]:
-            update_years = list(range(previous_year, year))
+            # update_years = list(range(previous_year, year))
             for season in range(previous_year, year):
                 self._divisions[str(season)] = division_history[previous_year]
             previous_year = year
@@ -893,6 +938,7 @@ def load_gamelog(gamelog_path):
     return games
 
 
+# Check if every team in the division has the same record.
 def check_divisions(divisions):
     matches = []
     for division_name, division_teams in divisions.items():
@@ -907,7 +953,8 @@ def check_divisions(divisions):
     return matches
 
 
-def check_league(divisions):
+# Check if one league has X best records overall (?).
+def check_league1(divisions):
     check_teams = 5
     standings = []
     for division_name, division_teams in divisions.items():
@@ -932,6 +979,37 @@ def check_league(divisions):
     return False
 
 
+# Check number of winning records in a league compared to the other league.
+# Goal is to check for seasons with unusually small/large number of teams with
+# a winning record.
+# NOTE: Returns a list that is expected to be sorted by caller.
+def check_league_winning_records(divisions):
+    check_winning_percentage = 0.5
+    check_winning_total = 1
+
+    winning_teams = collections.Counter()
+    total_teams = collections.Counter()
+    standings = []
+    for division_name, division_teams in divisions.items():
+        league = division_name[:2]
+        total_teams[league] += 1
+        for team in division_teams.values():
+            if team.wins + team.losses > 0:
+                win_percentage = team.wins / (team.wins + team.losses)
+            else:
+                # If any team hasn't played a game yet on this date, skip
+                # further consideration. We only want days where every team has
+                # played at least once.
+                return
+            if win_percentage > 0.5:
+                winning_teams[league] += 1
+    for league, number_winning in winning_teams.items():
+        winning_team_percentage = number_winning / total_teams[league]
+        if number_winning <= check_winning_total:
+            return league
+    return False
+
+
 def process_season(div, gamelog_path):
     teams = {}
     divisions = {}
@@ -946,6 +1024,8 @@ def process_season(div, gamelog_path):
     days = sorted({g[0] for g in games})
 
     game_idx = 0
+    # Only for check_league_winning_records.
+    standings = []
     for day in days:
         if game_idx >= len(games):
             break
@@ -975,13 +1055,12 @@ def process_season(div, gamelog_path):
                 break
             game = games[game_idx]
 
-        matches = check_league(divisions)
+        matches = check_league_winning_records(divisions)
         if matches:
-            print(f"Found all teams with same record on {day}: {matches}")
+            print(f"Found date matching condition on {day}: {matches}")
 
 
 def find_gamelog(yeardir):
-    gamelog_path = None
     for gl_glob in ('gl*.txt', 'GL*.TXT'):
         pattern = os.path.join(yeardir, gl_glob)
         gamelogs = glob.glob(pattern)
