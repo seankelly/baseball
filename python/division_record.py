@@ -984,16 +984,16 @@ def check_league1(divisions):
 # a winning record.
 # NOTE: Returns a list that is expected to be sorted by caller.
 def check_league_winning_records(divisions):
-    check_winning_percentage = 0.5
-    check_winning_total = 1
+    # check_winning_percentage = 0.5
+    # check_winning_total = 1
 
     winning_teams = collections.Counter()
     total_teams = collections.Counter()
     standings = []
     for division_name, division_teams in divisions.items():
         league = division_name[:2]
-        total_teams[league] += 1
         for team in division_teams.values():
+            total_teams[league] += 1
             if team.wins + team.losses > 0:
                 win_percentage = team.wins / (team.wins + team.losses)
             else:
@@ -1005,9 +1005,8 @@ def check_league_winning_records(divisions):
                 winning_teams[league] += 1
     for league, number_winning in winning_teams.items():
         winning_team_percentage = number_winning / total_teams[league]
-        if number_winning <= check_winning_total:
-            return league
-    return False
+        standings.append((winning_team_percentage, league))
+    return standings
 
 
 def process_season(div, gamelog_path):
@@ -1055,9 +1054,21 @@ def process_season(div, gamelog_path):
                 break
             game = games[game_idx]
 
-        matches = check_league_winning_records(divisions)
-        if matches:
-            print(f"Found date matching condition on {day}: {matches}")
+        # Add the day to each league's percentage so it can be tracked.
+        days_standings = check_league_winning_records(divisions)
+        if not days_standings:
+            continue
+        for record in days_standings:
+            record = list(record)
+            record.append(day)
+            standings.append(tuple(record))
+
+        # For other check_* functions. See git history.
+        # matches = check_league_winning_records(divisions)
+        # if matches:
+        #     print(f"Found date matching condition on {day}: {matches}")
+    standings.sort()
+    return standings
 
 
 def find_gamelog(yeardir):
@@ -1083,12 +1094,16 @@ def main():
     divisions = Divisions(DIVISIONS)
 
     retrosheet_dir = args.retrosheet_dir
+    standings = []
     for year in args.year:
         print(f"Checking {year}")
         season_dir = os.path.join(retrosheet_dir, year)
         div = divisions.division(year)
         gamelog_path = find_gamelog(season_dir)
-        process_season(div, gamelog_path)
+        standings.extend(process_season(div, gamelog_path))
+        standings.sort()
+    for idx in range(min(100, len(standings))):
+        print(standings[idx])
 
 
 if __name__ == '__main__':
