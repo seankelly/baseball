@@ -12,8 +12,9 @@ clap = { version = "~4.4", features = ["derive"] }
 csv = "1.0.0"
 quick-xml = "0.39.0"
 rayon = "1.8.1"
-rusqlite = { version = "0.39.0", features = ["serde_json"] }
+rusqlite = { version = "0.39.0", features = ["chrono", "serde_json"] }
 serde = { version = "1.0.43", features = ["derive"] }
 serde_derive = "1.0.43"
 serde_json = "1.0.149"
 tokio = { version = "1.52.1", features = ["full"] }
+tower-http = { version = "0.6.8", features = ["fs"] }

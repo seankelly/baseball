@@ -15,6 +15,7 @@ use clap::Parser;
 use rusqlite::{Connection, Result, OpenFlags};
 use rusqlite::types::ValueRef;
 use serde_json::json;
+use tower_http::services::ServeDir;
 
 
 const DEFAULT_LISTEN_PORT: u16 = 8000;
@@ -54,8 +55,11 @@ async fn main() {
     };
     let state = sync::Arc::new(sync::Mutex::new(appstate));
 
+    let index_serve = ServeDir::new("src/html");
+
     let app = Router::new()
         .route("/sql", get(sql_query))
+        .fallback_service(index_serve)
         .with_state(sync::Arc::clone(&state))
         ;
     let address = format!("127.0.0.1:{}", args.port.unwrap_or(DEFAULT_LISTEN_PORT));

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Play Index Search</title>
+        <meta charset="utf-8">
+        <style>
+            table {
+                border-spacing: 0px;
+                border-collapse: collapse;
+            }
+            th, td {
+                border: 1px solid black;
+                padding: 0.2em;
+                text-align: center;
+            }
+            td.number { text-align: right; }
+            td.text { text-align: left; }
+
+            ul#search-tab {
+                list-style-type: none;
+            }
+            ul#search-tab li {
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Play Index Search</h1>
+        <ul id="search-tab">
+            <li>SQL</li>
+            <li>CEL</li>
+        </ul>
+        <div id="sql-search">
+            <form action="" method="get">
+                <div>
+                    <textarea id="sql-query" rows="5" cols="80"></textarea>
+                </div>
+                <button id="submit-sql-query" type="button">Submit Query</button>
+            </form>
+            <h2>SQL Result</h2>
+            <table id="sql-results"></table>
+        </div>
+        <div id="cel-search">
+            <form action="" method="get">
+                <button id="submit-cel-query" type="button">Submit Query</button>
+            </form>
+            <h2>CEL Result</h2>
+            <table id="cel-results"></table>
+        </div>
+        <script defer src="search.mjs" type="module"></script>
+    </body>
+</html>
