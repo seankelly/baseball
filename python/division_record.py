@@ -1081,6 +1081,7 @@ def find_gamelog(yeardir):
 
 def options():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--limit', '-l', type=int, default=50)
     parser.add_argument('retrosheet_dir')
     parser.add_argument('year', nargs='+')
     args = parser.parse_args()
@@ -1102,7 +1103,7 @@ def main():
         gamelog_path = find_gamelog(season_dir)
         standings.extend(process_season(div, gamelog_path))
         standings.sort()
-    for idx in range(min(100, len(standings))):
+    for idx in range(min(args.limit, len(standings))):
         print(standings[idx])
 
 
