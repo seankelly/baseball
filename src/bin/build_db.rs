@@ -6,6 +6,7 @@ use std::process::Command;
 use baseball::register::Person;
 use baseball::retrosheet::game;
 use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball_tools::games;
 
 use clap::Parser;
 use csv::ReaderBuilder;
@@ -58,7 +59,7 @@ impl<'a> GameLoader<'a> {
         Ok(())
     }
 
-    fn insert_games(tx: &Transaction, games: &Vec<game::GameLog>) -> Result<(), Box<dyn Error>> {
+    fn insert_games(tx: &Transaction, games: &Vec<games::GameLog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO games VALUES (
                 :game_id, :date, :number_of_game, :day_of_week, :visitor_team, :visitor_league,
@@ -104,8 +105,8 @@ impl<'a> GameLoader<'a> {
         for game in games {
             insert.execute(
                 named_params! {
-                    ":game_id": &game.game_id(),
-                    ":date": &game.date_iso8601(),
+                    ":game_id": &game.game_id,
+                    ":date": &game.date,
                     ":number_of_game": &game.number_of_game,
                     ":day_of_week": &game.day_of_week,
                     ":visitor_team": &game.visitor_team,
@@ -273,7 +274,7 @@ impl<'a> GameLoader<'a> {
         Ok(())
     }
 
-    fn load_season_gamelog(&self, season: &String) -> Result<Vec<game::GameLog>, Box<dyn Error>> {
+    fn load_season_gamelog(&self, season: &String) -> Result<Vec<games::GameLog>, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
         // Chadwick's Retrosheet seasons either have a GLYYYY.TXT or glYYYY.txt file.
         let gl_file_names = [format!("GL{}.TXT", season), format!("gl{}.txt", season)];
@@ -288,13 +289,14 @@ impl<'a> GameLoader<'a> {
 
         let mut games = Vec::new();
         if let Some(gl_path) = gamelog_file {
-            let mut reader = csv::ReaderBuilder::new()
+            let mut reader = ReaderBuilder::new()
                 .has_headers(false)
                 .from_path(&gl_path)?;
             for result in reader.deserialize() {
                 match result {
                     Ok(game) => {
-                        games.push(game);
+                        let game: game::GameLog = game;
+                        games.push(game.into());
                     }
                     Err(e) => {
                         eprintln!("Error: {}", e);

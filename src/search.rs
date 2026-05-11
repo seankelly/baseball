@@ -43,16 +43,6 @@ impl<'a> Search<'a> {
     }
 
     pub fn filter<T: CelSearch>(&self, input: &mut Vec<T>) {
-        /*
-        match self.filter_program.as_ref() {
-            Some(filter_program) => {
-                input
-                    .into_par_iter()
-                    .filter(|element| self.filter_option(element, &filter_program)).collect()
-            }
-            None => input,
-        }
-        */
         if let Some(filter_program) = self.filter_program.as_ref() {
             input.retain(|element| self.filter_option(element, &filter_program));
         }
