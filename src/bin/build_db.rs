@@ -53,9 +53,10 @@ impl<'a> GameLoader<'a> {
 
     // SQL interaction section.
     fn create_games_table(&mut self) -> Result<(), Box<dyn Error>> {
-        self.conn.execute("DROP TABLE IF EXISTS games", ())?;
-        self.conn.execute(include_str!("../sql/create_games.sql"), ())?;
-
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        tx.execute("DROP TABLE IF EXISTS games", ())?;
+        tx.execute(include_str!("../sql/create_games.sql"), ())?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -355,23 +356,26 @@ impl<'a> PlayerGamelogs<'a> {
     }
 
     fn create_batting_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
-        self.conn.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
-        self.conn.execute(include_str!("../sql/create_batting_gamelogs.sql"), ())?;
-
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        tx.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
+        tx.execute(include_str!("../sql/create_batting_gamelogs.sql"), ())?;
+        tx.commit()?;
         Ok(())
     }
 
     fn create_fielding_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
-        self.conn.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
-        self.conn.execute(include_str!("../sql/create_fielding_gamelogs.sql"), ())?;
-
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        tx.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
+        tx.execute(include_str!("../sql/create_fielding_gamelogs.sql"), ())?;
+        tx.commit()?;
         Ok(())
     }
 
     fn create_pitching_gamelogs_table(&mut self) -> Result<(), Box<dyn Error>> {
-        self.conn.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
-        self.conn.execute(include_str!("../sql/create_pitching_gamelogs.sql"), ())?;
-
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        tx.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
+        tx.execute(include_str!("../sql/create_pitching_gamelogs.sql"), ())?;
+        tx.commit()?;
         Ok(())
     }
 
