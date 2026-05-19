@@ -1,3 +1,5 @@
+use std::cmp;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path;
@@ -7,6 +9,7 @@ use baseball::register::Person;
 use baseball::retrosheet::game;
 use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
 use baseball_tools::games;
+use baseball_tools::player;
 
 use clap::Parser;
 use csv::ReaderBuilder;
@@ -330,6 +333,7 @@ impl<'a> GameLoader<'a> {
                 "
                 CREATE INDEX games_game_idx ON games (game_id);
                 CREATE INDEX games_date_idx ON games (date);
+                CREATE INDEX games_year_idx ON games (strftime('%Y', date));
                 CREATE INDEX games_away_idx ON games (visitor_team);
                 CREATE INDEX games_home_idx ON games (home_team);
                 "
@@ -340,10 +344,47 @@ impl<'a> GameLoader<'a> {
     }
 }
 
-
 struct PlayerGamelogs<'a> {
     conn: &'a mut Connection,
     retrosheet_dir: path::PathBuf,
+}
+
+
+type DatedPlayerGamelogs<T> = (T, chrono::NaiveDate);
+
+
+struct BattingSlashLine {
+    ab: u16,
+    h: u16,
+    tb: u16,
+    bb: u8,
+    hbp: u8,
+    sf: u8,
+}
+
+
+// Value scaled so they will work for the league totals.
+struct PitcherStats {
+    ipouts: u32,
+    er: u16,
+    hr: u16,
+    bb: u16,
+    hbp: u16,
+    so: u16,
+    fip_constant: f32,
+}
+
+
+#[derive(Eq, Hash, PartialEq)]
+struct TeamGameLogKey {
+    game_id: String,
+    team_id: String,
+}
+
+
+struct TeamGameLogValue {
+    date: chrono::NaiveDate,
+    team_game_number: u16,
 }
 
 
@@ -379,11 +420,12 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(())
     }
 
-    fn insert_batting_gamelogs(tx: &Transaction, gamelogs: &Vec<BattingGamelog>) -> Result<(), Box<dyn Error>> {
+    fn insert_batting_gamelogs(tx: &Transaction, gamelogs: &Vec<player::BattingGamelog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO batting_gamelogs VALUES (
-                :player_id, :game_id, :pa, :ab, :r, :h, :d, :t, :hr, :rbi, :rbi2out, :bb, :ibb,
-                :so, :gidp, :hbp, :sh, :sf, :sb, :cs, :pos)");
+                :player_id, :game_id, :team_id, :career_game, :season_game, :team_game, :pa, :ab,
+                :r, :h, :d, :t, :hr, :rbi, :rbi2out, :bb, :ibb, :so, :gidp, :hbp, :sh, :sf, :sb,
+                :cs, :avg, :obp, :slg, :woba, :babip, :pos)");
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
@@ -391,6 +433,10 @@ impl<'a> PlayerGamelogs<'a> {
                 named_params! {
                     ":player_id": &game.player_id,
                     ":game_id": &game.game_id,
+                    ":team_id": &game.team_id,
+                    ":career_game": &game.career_game,
+                    ":season_game": &game.season_game,
+                    ":team_game": &game.team_game,
                     ":pa": &game.pa,
                     ":ab": &game.ab,
                     ":r": &game.r,
@@ -409,6 +455,11 @@ impl<'a> PlayerGamelogs<'a> {
                     ":sf": &game.sf,
                     ":sb": &game.sb,
                     ":cs": &game.cs,
+                    ":avg": &game.avg,
+                    ":obp": &game.obp,
+                    ":slg": &game.slg,
+                    ":woba": &game.woba,
+                    ":babip": &game.babip,
                     ":pos": &game.pos,
                 }
             )?;
@@ -417,10 +468,11 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(())
     }
 
-    fn insert_fielding_gamelogs(tx: &Transaction, gamelogs: &Vec<FieldingGamelog>) -> Result<(), Box<dyn Error>> {
+    fn insert_fielding_gamelogs(tx: &Transaction, gamelogs: &Vec<player::FieldingGamelog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO fielding_gamelogs VALUES (
-                :player_id, :game_id, :pos, :o, :po, :a, :e, :dp, :tp, :bip, :bf)");
+                :player_id, :game_id, :team_id, :career_game, :season_game, :team_game, :pos, :o,
+                :po, :a, :e, :dp, :tp, :bip, :bf)");
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
@@ -428,6 +480,10 @@ impl<'a> PlayerGamelogs<'a> {
                 named_params! {
                     ":player_id": &game.player_id,
                     ":game_id": &game.game_id,
+                    ":team_id": &game.team_id,
+                    ":career_game": &game.career_game,
+                    ":season_game": &game.season_game,
+                    ":team_game": &game.team_game,
                     ":pos": &game.pos,
                     ":o": &game.o,
                     ":po": &game.po,
@@ -444,11 +500,12 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(())
     }
 
-    fn insert_pitching_gamelogs(tx: &Transaction, gamelogs: &Vec<PitchingGamelog>) -> Result<(), Box<dyn Error>> {
+    fn insert_pitching_gamelogs(tx: &Transaction, gamelogs: &Vec<player::PitchingGamelog>) -> Result<(), Box<dyn Error>> {
         let insert_sql = String::from(
             "INSERT INTO pitching_gamelogs VALUES (
-                :player_id, :game_id, :gs, :cg, :sho, :gf, :ipouts, :ab, :bf, :h, :r, :er, :hr,
-                :bb, :ibb, :so, :wp, :bk, :hbp, :gb, :fb, :p, :s, :decision)");
+                :player_id, :game_id, :team_id, :career_game, :season_game, :team_game, :gs, :cg,
+                :sho, :gf, :ipouts, :ab, :bf, :h, :r, :er, :hr, :bb, :ibb, :so, :wp, :bk, :hbp,
+                :gb, :fb, :p, :s, :decision, :era, :fip)");
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
@@ -456,6 +513,10 @@ impl<'a> PlayerGamelogs<'a> {
                 named_params! {
                     ":player_id": &game.player_id,
                     ":game_id": &game.game_id,
+                    ":team_id": &game.team_id,
+                    ":career_game": &game.career_game,
+                    ":season_game": &game.season_game,
+                    ":team_game": &game.team_game,
                     ":gs": &game.gs,
                     ":cg": &game.cg,
                     ":sho": &game.sho,
@@ -478,11 +539,47 @@ impl<'a> PlayerGamelogs<'a> {
                     ":p": &game.p,
                     ":s": &game.s,
                     ":decision": &game.decision,
+                    ":era": &game.era,
+                    ":fip": &game.fip,
                 }
             )?;
         }
 
         Ok(())
+    }
+
+    fn load_team_gamelogs(&self, season: &str) -> Result<HashMap<TeamGameLogKey, TeamGameLogValue>, Box<dyn Error>> {
+        let mut statement = self.conn.prepare(
+            "SELECT game_id, date, visitor_team, visitor_team_game_number, home_team, home_team_game_number
+            FROM games
+            WHERE strftime('%Y', games.date) = :season"
+        )?;
+        let mut games = HashMap::new();
+        let mut rows = statement.query(&[(":season", season)])?;
+        while let Some(row) = rows.next()? {
+            let game_id: String = row.get(0)?;
+            let date: chrono::NaiveDate = row.get(1)?;
+            let home_team = TeamGameLogKey {
+                game_id: game_id.clone(),
+                team_id: row.get(4)?,
+            };
+            let home_team_value = TeamGameLogValue {
+                date,
+                team_game_number: row.get(5)?,
+            };
+            games.insert(home_team, home_team_value);
+
+            let visitor_team = TeamGameLogKey {
+                game_id: game_id.clone(),
+                team_id: row.get(2)?,
+            };
+            let visitor_team_value = TeamGameLogValue {
+                date,
+                team_game_number: row.get(3)?,
+            };
+            games.insert(visitor_team, visitor_team_value);
+        }
+        Ok(games)
     }
 
     fn load_season_boxscores(&self, season: &String) -> Result<String, Box<dyn Error>> {
@@ -500,6 +597,141 @@ impl<'a> PlayerGamelogs<'a> {
         }
     }
 
+    fn dated_gamelog_cmp<T: player::PlayerGamelog>(a: &DatedPlayerGamelogs<T>, b: &DatedPlayerGamelogs<T>) -> cmp::Ordering {
+        let player_cmp = a.0.player_id().cmp(&b.0.player_id());
+        match player_cmp {
+            cmp::Ordering::Equal => {},
+            _ => { return player_cmp; }
+        }
+        let date_cmp = a.1.cmp(&b.1);
+        match date_cmp {
+            cmp::Ordering::Equal => {},
+            _ => { return date_cmp; }
+        }
+        a.0.team_id().cmp(&b.0.team_id())
+    }
+
+    fn order_dated_gamelogs<T, U>(season: i32, chadwick_gl: Vec<T>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<DatedPlayerGamelogs<U>>
+        where U: player::PlayerGamelog + std::convert::From<T>
+    {
+        let game_count = chadwick_gl.len();
+        let default_value = TeamGameLogValue {
+            date: chrono::NaiveDate::from_ymd_opt(season, 1, 1).unwrap(),
+            team_game_number: 0,
+        };
+        let mut internal_gamelogs: Vec<DatedPlayerGamelogs<U>> = Vec::with_capacity(game_count);
+        for gl in chadwick_gl.into_iter() {
+            let mut new_gl: U = gl.into();
+            let key = TeamGameLogKey {
+                game_id: new_gl.game_id().to_string(),
+                team_id: new_gl.team_id().to_string(),
+            };
+            // Need date and team game number.
+            let value = games.get(&key).unwrap_or(&default_value);
+            new_gl.set_team_game(value.team_game_number);
+            internal_gamelogs.push((new_gl, value.date));
+        }
+        internal_gamelogs.sort_unstable_by(Self::dated_gamelog_cmp);
+        return internal_gamelogs;
+    }
+
+    fn order_batting_gamelogs(season: i32, chadwick_gl: Vec<BattingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::BattingGamelog> {
+        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
+
+        let mut prev_player = String::with_capacity(10);
+        let mut slash_line = BattingSlashLine::new();
+        let mut season_game = 1;
+        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
+        for entry in dated_gamelogs.into_iter() {
+            let mut gl: player::BattingGamelog = entry.0;
+            if prev_player == gl.player_id {
+                slash_line.add_gamelog(&gl);
+                let stats = slash_line.slash_line();
+                gl.season_game = season_game;
+                gl.avg = stats.0;
+                gl.obp = stats.1;
+                gl.slg = stats.2;
+                season_game += 1;
+            }
+            else {
+                prev_player.clear();
+                prev_player.push_str(&gl.player_id);
+                slash_line.clear();
+                slash_line.add_gamelog(&gl);
+                let stats = slash_line.slash_line();
+                gl.season_game = 1;
+                gl.avg = stats.0;
+                gl.obp = stats.1;
+                gl.slg = stats.2;
+                season_game = 2;
+            }
+            gamelogs.push(gl);
+        }
+        gamelogs
+    }
+
+    fn order_fielding_gamelogs(season: i32, chadwick_gl: Vec<FieldingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::FieldingGamelog> {
+        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
+
+        let mut prev_player = String::with_capacity(10);
+        let mut season_game = 1;
+        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
+        for entry in dated_gamelogs.into_iter() {
+            let mut gl: player::FieldingGamelog = entry.0;
+            if prev_player == gl.player_id {
+                gl.season_game = season_game;
+                season_game += 1;
+            }
+            else {
+                prev_player.clear();
+                prev_player.push_str(&gl.player_id);
+                gl.season_game = 1;
+                season_game = 2;
+            }
+            gamelogs.push(gl);
+        }
+        gamelogs
+    }
+
+    fn order_pitching_gamelogs(season: i32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::PitchingGamelog> {
+        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
+        // Iterate one more time through every pitching game to calculate the league ERA and the
+        // unscaled FIP values to get the FIP constant for this season.
+        let league_stats = dated_gamelogs.iter().fold(PitcherStats::new_with_fip(0.0), |mut lgstats, g| {
+            lgstats.add_gamelog(&g.0);
+            lgstats
+        });
+
+        let league_fip_constant = league_stats.era() - league_stats.fip();
+        println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
+        let mut prev_player = String::with_capacity(10);
+        let mut pitcher_stats = PitcherStats::new_with_fip(league_fip_constant);
+        let mut season_game = 1;
+        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
+        for entry in dated_gamelogs.into_iter() {
+            let mut gl: player::PitchingGamelog = entry.0;
+            if prev_player == gl.player_id {
+                pitcher_stats.add_gamelog(&gl);
+                gl.season_game = season_game;
+                gl.era = pitcher_stats.era();
+                gl.fip = pitcher_stats.fip();
+                season_game += 1;
+            }
+            else {
+                prev_player.clear();
+                prev_player.push_str(&gl.player_id);
+                pitcher_stats.clear();
+                pitcher_stats.add_gamelog(&gl);
+                gl.season_game = 1;
+                gl.era = pitcher_stats.era();
+                gl.fip = pitcher_stats.fip();
+                season_game = 2;
+            }
+            gamelogs.push(gl);
+        }
+        gamelogs
+    }
+
     fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
         if initialize {
             println!("Creating gamelog tables");
@@ -508,10 +740,22 @@ impl<'a> PlayerGamelogs<'a> {
             self.create_pitching_gamelogs_table()?;
         }
 
+
         for season in seasons {
+            // Load team gamelogs.
+            println!("Loading team game logs from {} season", season);
+            let team_games = self.load_team_gamelogs(&season)?;
+
             println!("Loading player game logs from {} season", season);
             let xml = self.load_season_boxscores(&season)?;
             let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(&xml);
+
+            // Transform Chadwick gamelogs into internal version for the database and sort to allow
+            // marking which game number in the season this is for a player.
+            let season_int = season.parse::<i32>().expect("Couldn't parse int from season");
+            let batting_gamelogs = Self::order_batting_gamelogs(season_int, batting_gamelogs, &team_games);
+            let fielding_gamelogs = Self::order_fielding_gamelogs(season_int, fielding_gamelogs, &team_games);
+            let pitching_gamelogs = Self::order_pitching_gamelogs(season_int, pitching_gamelogs, &team_games );
 
             let tx = self.conn.transaction().expect("Could not create transaction");
             Self::insert_batting_gamelogs(&tx, &batting_gamelogs)?;
@@ -526,15 +770,134 @@ impl<'a> PlayerGamelogs<'a> {
                 "
                 CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
                 CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
+                CREATE INDEX batting_gamelogs_team_idx ON batting_gamelogs (team_id);
                 CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
                 CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
+                CREATE INDEX fielding_gamelogs_team_idx ON fielding_gamelogs (team_id);
                 CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
                 CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
+                CREATE INDEX pitching_gamelogs_team_idx ON pitching_gamelogs (team_id);
                 "
             )?;
         }
 
         Ok(())
+    }
+}
+
+
+impl BattingSlashLine {
+    fn new() -> Self {
+        Self {
+            ab: 0,
+            h: 0,
+            tb: 0,
+            bb: 0,
+            hbp: 0,
+            sf: 0,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.h = 0;
+        self.ab = 0;
+        self.h = 0;
+        self.tb = 0;
+        self.bb = 0;
+        self.hbp = 0;
+        self.sf = 0;
+    }
+
+    fn add_gamelog(&mut self, gamelog: &player::BattingGamelog) {
+        let h: u16 = gamelog.h.into();
+        let ab: u16 = gamelog.ab.into();
+        self.h += h;
+        self.ab += ab;
+        let d: u16 = gamelog.d.into();
+        let t: u16 = gamelog.t.into();
+        let hr: u16 = gamelog.hr.into();
+        // The hits field includes extra-base hits so the game total for each stat includes the
+        // number of bases beyond a single.
+        self.tb += h + d + t * 2 + hr * 3;
+        self.bb += gamelog.bb;
+        self.hbp += gamelog.hbp;
+        self.sf += gamelog.sf;
+    }
+
+    fn slash_line(&self) -> (f32, f32, f32) {
+        let h = self.h as f32;
+        let ab = self.ab as f32;
+        let tb = self.tb as f32;
+        let bb = self.bb as f32;
+        let hbp = self.hbp as f32;
+        let sf = self.sf as f32;
+
+        let avg = h / ab;
+        let obp = (h + bb + hbp) / (ab + bb + hbp + sf);
+        let slg = tb / ab;
+
+        (avg, obp, slg)
+    }
+}
+
+
+impl PitcherStats {
+    /*
+    fn new() -> Self {
+        Self::new_with_fip(3.20)
+    }
+    */
+
+    fn new_with_fip(fip_constant: f32) -> Self {
+        Self {
+            ipouts: 0,
+            er: 0,
+            hr: 0,
+            bb: 0,
+            hbp: 0,
+            so: 0,
+            fip_constant,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.ipouts = 0;
+        self.er = 0;
+        self.hr = 0;
+        self.bb = 0;
+        self.hbp = 0;
+        self.so = 0;
+    }
+
+    fn add_gamelog(&mut self, gamelog: &player::PitchingGamelog) {
+        let ipouts: u32 = gamelog.ipouts.into();
+        self.ipouts += ipouts;
+        let er: u16 = gamelog.er.into();
+        self.er += er;
+        let hr: u16 = gamelog.hr.into();
+        self.hr += hr;
+        let bb: u16 = gamelog.bb.into();
+        self.bb += bb;
+        let hbp: u16 = gamelog.hbp.into();
+        self.hbp += hbp;
+        let so: u16 = gamelog.so.into();
+        self.so += so;
+    }
+
+    fn era(&self) -> f32 {
+        let er = self.er as f32;
+        let outs = self.ipouts as f32;
+        er * 27.0 / outs
+    }
+
+    fn fip(&self) -> f32 {
+        let hr = self.hr as f32;
+        let bb = self.bb as f32;
+        let hbp = self.hbp as f32;
+        let so = self.so as f32;
+        let outs = self.ipouts as f32;
+
+        (13.0 * hr + 3.0 * (bb + hbp) - 2.0 * so) / (outs / 3.0) + self.fip_constant
     }
 }
 

@@ -1,6 +1,10 @@
 CREATE TABLE pitching_gamelogs (
     player_id TEXT NOT NULL,
     game_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    career_game INTEGER,
+    season_game INTEGER,
+    team_game INTEGER,
     gs INTEGER,
     cg INTEGER,
     sho INTEGER,
@@ -22,5 +26,7 @@ CREATE TABLE pitching_gamelogs (
     fb INTEGER,
     p INTEGER,
     s INTEGER,
-    decision TEXT
+    decision TEXT,
+    era REAL,
+    fip REAL
 )

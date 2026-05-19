@@ -1,6 +1,10 @@
 CREATE TABLE batting_gamelogs (
     player_id TEXT NOT NULL,
     game_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    career_game INTEGER,
+    season_game INTEGER,
+    team_game INTEGER,
     pa INTEGER,
     ab INTEGER,
     r INTEGER,
@@ -19,5 +23,10 @@ CREATE TABLE batting_gamelogs (
     sf INTEGER,
     sb INTEGER,
     cs INTEGER,
+    bavg REAL,
+    obp REAL,
+    slg REAL,
+    woba REAL,
+    babip REAL,
     pos TEXT
 )

@@ -1,6 +1,10 @@
 CREATE TABLE fielding_gamelogs (
     player_id TEXT NOT NULL,
     game_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    career_game INTEGER,
+    season_game INTEGER,
+    team_game INTEGER,
     pos INTEGER,
     o INTEGER,
     po INTEGER,

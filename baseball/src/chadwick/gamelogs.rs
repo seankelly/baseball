@@ -13,6 +13,7 @@ use serde_derive::Deserialize;
 pub struct BattingGamelog {
     pub player_id: String,
     pub game_id: String,
+    pub team_id: String,
     pub pa: u8,
     pub ab: u8,
     pub r: u8,
@@ -41,6 +42,7 @@ pub struct BattingGamelog {
 pub struct FieldingGamelog {
     pub player_id: String,
     pub game_id: String,
+    pub team_id: String,
     pub pos: u8,
     pub o: u8,
     pub po: u8,
@@ -58,6 +60,7 @@ pub struct FieldingGamelog {
 pub struct PitchingGamelog {
     pub player_id: String,
     pub game_id: String,
+    pub team_id: String,
     pub gs: bool,
     pub cg: bool,
     pub sho: bool,
@@ -100,13 +103,15 @@ fn attribute_to_bool(attr: &quick_xml::events::attributes::Attribute) -> bool {
 
 
 impl BattingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, player_id: &str, positions: &String) -> Self {
+    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str, positions: &String) -> Self {
+        let team_id = team_id.to_owned();
         let game_id = game_id.to_owned();
         let player_id = player_id.to_owned();
         let pos = positions.clone();
         let mut batting = Self {
             player_id,
             game_id,
+            team_id,
             pos,
             ..Default::default()
         };
@@ -148,12 +153,14 @@ impl BattingGamelog {
 
 
 impl FieldingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, player_id: &str) -> Self {
+    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str) -> Self {
+        let team_id = team_id.to_owned();
         let player_id = player_id.to_owned();
         let game_id = game_id.to_owned();
         let mut fielding = Self {
             player_id,
             game_id,
+            team_id,
             ..Default::default()
         };
 
@@ -183,10 +190,12 @@ impl FieldingGamelog {
 
 
 impl PitchingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str) -> Self {
+    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str) -> Self {
+        let team_id = team_id.to_owned();
         let game_id = game_id.to_owned();
         let mut pitching = Self {
             game_id,
+            team_id,
             ..Default::default()
         };
 
@@ -235,25 +244,22 @@ impl PitchingGamelog {
 }
 
 
-fn find_game_id(element: &BytesStart) -> String {
-    let mut game_id = String::new();
+fn find_attribute(element: &BytesStart, name: &[u8]) -> String {
+    let mut value = String::new();
 
     for attribute in element.attributes() {
         match attribute {
             Ok(attr) => {
-                match attr.key.local_name().as_ref() {
-                    b"game_id" => {
-                        game_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    _ => {
-                    }
+                let attr_name = attr.key.local_name();
+                if name == attr_name.as_ref() {
+                    value.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
                 }
             }
             Err(_e) => {}
         }
     }
 
-    game_id
+    value
 }
 
 
@@ -292,6 +298,7 @@ pub fn gamelogs_from_boxscores(boxsore_xml: &str) -> (Vec<BattingGamelog>, Vec<F
     reader.config_mut().trim_text(true);
     let mut buffer = Vec::new();
 
+    let mut active_team = None;
     let mut active_player = None;
     let mut active_player_pos = None;
     let mut active_game = None;
@@ -301,7 +308,10 @@ pub fn gamelogs_from_boxscores(boxsore_xml: &str) -> (Vec<BattingGamelog>, Vec<F
             Ok(Event::Start(e)) => {
                 match e.name().as_ref() {
                     b"boxscore" => {
-                        active_game = Some(find_game_id(&e));
+                        active_game = Some(find_attribute(&e, b"game_id"));
+                    }
+                    b"players" => {
+                        active_team = Some(find_attribute(&e, b"team"));
                     }
                     b"player" => {
                         let (player_id, positions) = find_player_info(&e);
@@ -328,21 +338,24 @@ pub fn gamelogs_from_boxscores(boxsore_xml: &str) -> (Vec<BattingGamelog>, Vec<F
                         let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
                         let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
                         let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let team = active_team.as_ref().expect("Active team doesn't exist for Batting");
                         let batting = BattingGamelog::from_element(
-                            &e, &game, &player, &positions);
+                            &e, &game, &team, &player, &positions);
                         batting_gamelogs.push(batting);
                     }
                     b"pitcher" => {
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Pitching");
+                        let team = active_team.as_ref().expect("Active team doesn't exist for Pitching");
                         let pitcher = PitchingGamelog::from_element(
-                            &e, &game);
+                            &e, &game, &team);
                         pitching_gamelogs.push(pitcher);
                     }
                     b"fielding" => {
-                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
+                        let player = active_player.as_ref().expect("Active player doesn't exist for Fielding");
+                        let game = active_game.as_ref().expect("Active game doesn't exist for Fielding");
+                        let team = active_team.as_ref().expect("Active team doesn't exist for Fielding");
                         let fielding = FieldingGamelog::from_element(
-                            &e, &game, &player);
+                            &e, &game, &team, &player);
                         fielding_gamelogs.push(fielding);
                     }
                     _ => {}
