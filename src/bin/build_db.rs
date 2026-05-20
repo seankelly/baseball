@@ -832,9 +832,26 @@ impl BattingSlashLine {
         let hbp = self.hbp as f32;
         let sf = self.sf as f32;
 
-        let avg = h / ab;
-        let obp = (h + bb + hbp) / (ab + bb + hbp + sf);
-        let slg = tb / ab;
+        let avg = if ab > 0.0 {
+            h / ab
+        }
+        else {
+            f32::NAN
+        };
+
+        let obp = if (ab + bb + hbp + sf) > 0.0 {
+            (h + bb + hbp) / (ab + bb + hbp + sf)
+        }
+        else {
+            f32::NAN
+        };
+
+        let slg = if ab > 0.0 {
+            tb / ab
+        }
+        else {
+            f32::NAN
+        };
 
         (avg, obp, slg)
     }
@@ -887,7 +904,15 @@ impl PitcherStats {
     fn era(&self) -> f32 {
         let er = self.er as f32;
         let outs = self.ipouts as f32;
-        er * 27.0 / outs
+        if outs > 0.0 {
+            er * 27.0 / outs
+        }
+        else if er > 0.0 {
+            f32::INFINITY
+        }
+        else {
+            f32::NAN
+        }
     }
 
     fn fip(&self) -> f32 {
@@ -897,7 +922,15 @@ impl PitcherStats {
         let so = self.so as f32;
         let outs = self.ipouts as f32;
 
-        (13.0 * hr + 3.0 * (bb + hbp) - 2.0 * so) / (outs / 3.0) + self.fip_constant
+        if outs > 0.0 {
+            (13.0 * hr + 3.0 * (bb + hbp) - 2.0 * so) / (outs / 3.0) + self.fip_constant
+        }
+        else if hr > 0.0 || bb > 0.0 || hbp > 0.0 || so > 0.0 {
+            f32::INFINITY
+        }
+        else {
+            f32::NAN
+        }
     }
 }
 
