@@ -2,8 +2,9 @@ use std::cmp;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
+use std::io;
 use std::path;
-use std::process::Command;
+use std::process::{ChildStdout, Command, Stdio};
 
 use baseball::register::Person;
 use baseball::retrosheet::game;
@@ -582,14 +583,16 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(games)
     }
 
-    fn load_season_boxscores(&self, season: &String) -> Result<String, Box<dyn Error>> {
+    fn load_season_boxscores(&self, season: &String) -> Result<ChildStdout, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
         let mut cwbox = Command::new("cwbox");
         cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
         cwbox.args(find_boxscore_files(&season_dir)?);
-        match cwbox.output() {
-            Ok(result) => {
-                Ok(String::from_utf8(result.stdout)?)
+        let command = cwbox.stdin(Stdio::null()).stdout(Stdio::piped());
+        match command.spawn() {
+            Ok(mut child) => {
+                let stdout = child.stdout.take().expect("cwbox stdout handle not available");
+                Ok(stdout)
             }
             Err(err) => {
                 Err(Box::new(err))
@@ -747,8 +750,8 @@ impl<'a> PlayerGamelogs<'a> {
             let team_games = self.load_team_gamelogs(&season)?;
 
             println!("Loading player game logs from {} season", season);
-            let xml = self.load_season_boxscores(&season)?;
-            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(&xml);
+            let stdout = self.load_season_boxscores(&season)?;
+            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
 
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
             // marking which game number in the season this is for a player.

@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::default::Default;
+use std::io;
 use std::str;
 
 use quick_xml::events::{BytesStart, Event};
@@ -289,14 +290,15 @@ fn find_player_info(element: &BytesStart) -> (String, String) {
 }
 
 
-pub fn gamelogs_from_boxscores(boxsore_xml: &str) -> (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>) {
+pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>) {
     let mut batting_gamelogs = Vec::new();
     let mut pitching_gamelogs = Vec::new();
     let mut fielding_gamelogs = Vec::new();
 
-    let mut reader = Reader::from_str(boxsore_xml);
+    let mut reader = Reader::from_reader(boxscore_xml);
     reader.config_mut().trim_text(true);
-    let mut buffer = Vec::new();
+    // Longest line from cwbox was 524 characters. Round up to allow some room for growth.
+    let mut buffer = Vec::with_capacity(550);
 
     let mut active_team = None;
     let mut active_player = None;
