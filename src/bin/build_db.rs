@@ -11,6 +11,7 @@ use baseball::retrosheet::game;
 use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
 use baseball_tools::games;
 use baseball_tools::player;
+use baseball_tools::internals::Guts;
 
 use clap::Parser;
 use csv::ReaderBuilder;
@@ -696,7 +697,7 @@ impl<'a> PlayerGamelogs<'a> {
         gamelogs
     }
 
-    fn order_pitching_gamelogs(season: i32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::PitchingGamelog> {
+    fn order_pitching_gamelogs(season: i32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> (f32, Vec<player::PitchingGamelog>) {
         let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
         // Iterate one more time through every pitching game to calculate the league ERA and the
         // unscaled FIP values to get the FIP constant for this season.
@@ -732,7 +733,7 @@ impl<'a> PlayerGamelogs<'a> {
             }
             gamelogs.push(gl);
         }
-        gamelogs
+        (league_fip_constant, gamelogs)
     }
 
     fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
@@ -743,11 +744,13 @@ impl<'a> PlayerGamelogs<'a> {
             self.create_pitching_gamelogs_table()?;
         }
 
-
         for season in seasons {
             // Load team gamelogs.
             println!("Loading team game logs from {} season", season);
             let team_games = self.load_team_gamelogs(&season)?;
+
+            let season_numeric = season.parse::<u16>()?;
+            let mut guts = Guts::new(season_numeric);
 
             println!("Loading player game logs from {} season", season);
             let stdout = self.load_season_boxscores(&season)?;
@@ -755,12 +758,13 @@ impl<'a> PlayerGamelogs<'a> {
 
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
             // marking which game number in the season this is for a player.
-            let season_int = season.parse::<i32>().expect("Couldn't parse int from season");
-            let batting_gamelogs = Self::order_batting_gamelogs(season_int, batting_gamelogs, &team_games);
-            let fielding_gamelogs = Self::order_fielding_gamelogs(season_int, fielding_gamelogs, &team_games);
-            let pitching_gamelogs = Self::order_pitching_gamelogs(season_int, pitching_gamelogs, &team_games );
+            let batting_gamelogs = Self::order_batting_gamelogs(season_numeric.into(), batting_gamelogs, &team_games);
+            let fielding_gamelogs = Self::order_fielding_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games);
+            let (fip_constant, pitching_gamelogs) = Self::order_pitching_gamelogs(season_numeric.into(), pitching_gamelogs, &team_games );
+            guts.fip_constant = fip_constant;
 
             let tx = self.conn.transaction().expect("Could not create transaction");
+            update_fip_constant(&tx, &guts)?;
             Self::insert_batting_gamelogs(&tx, &batting_gamelogs)?;
             Self::insert_fielding_gamelogs(&tx, &fielding_gamelogs)?;
             Self::insert_pitching_gamelogs(&tx, &pitching_gamelogs)?;
@@ -960,6 +964,35 @@ fn find_boxscore_files(season_dir: &path::Path) -> Result<Vec<String>, Box<dyn E
 }
 
 
+fn create_internal_tables(conn: &mut Connection) {
+    if let Ok(table_exists) = conn.table_exists(Some("main"), "guts") && !table_exists {
+        let res = conn.execute(include_str!("../sql/create_guts.sql"), ());
+        if let Err(err) = res {
+            eprintln!("Creation of guts table failed: {}", err);
+            return;
+        }
+    }
+}
+
+
+fn update_fip_constant(tx: &Transaction, guts: &Guts) -> Result<(), Box<dyn Error>> {
+    let insert_sql = String::from(
+        "INSERT INTO guts (season, fip_constant) VALUES (:season, :fip_constant)
+         ON CONFLICT (season) DO UPDATE SET fip_constant=:fip_constant"
+    );
+
+    let mut insert = tx.prepare(&insert_sql)?;
+    insert.execute(
+        named_params! {
+            ":season": &guts.season,
+            ":fip_constant": &guts.fip_constant,
+        }
+    )?;
+
+    Ok(())
+}
+
+
 fn load_people_file(people_csv: &path::Path) -> Result<Vec<Person>, Box<dyn Error>> {
     let mut people = Vec::new();
 
@@ -1103,6 +1136,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     if let Some(register_path) = args.register_dir {
         load_people_files(&mut connection, &register_path, args.init);
     }
+
+    create_internal_tables(&mut connection);
 
     if args.games {
         if let Some(ref retrosheet_dir) = args.retrosheet_dir {
