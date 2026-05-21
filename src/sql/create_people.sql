@@ -1,5 +1,5 @@
 CREATE TABLE people (
-    key_person TEXT NOT NULL,
+    key_person TEXT PRIMARY KEY,
     key_uuid TEXT NOT NULL,
     key_mlbam INTEGER,
     key_retro TEXT,
