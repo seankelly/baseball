@@ -993,37 +993,21 @@ fn update_fip_constant(tx: &Transaction, guts: &Guts) -> Result<(), Box<dyn Erro
 
 
 fn load_people_file(people_csv: &path::Path) -> Result<Vec<Person>, Box<dyn Error>> {
-    let mut people = Vec::new();
-
+    // Largest people file is a bit over 32k so give some room to grow.
+    let mut people = Vec::with_capacity(34000);
     let file = fs::File::open(people_csv)?;
     let mut reader = ReaderBuilder::new().from_reader(file);
     for person in reader.deserialize().flatten() {
         people.push(person);
     }
-
     Ok(people)
 }
 
+
 fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initialize: bool) {
-    let mut people = Vec::new();
     let data_dir = register_dir.join("data");
 
     println!("Preparing to load register");
-
-    for entry in data_dir.read_dir().expect("Failed to read register data directory").flatten() {
-        let file_name = entry.file_name().into_string();
-        if let Ok(file_name) = file_name {
-            if !file_name.starts_with("people") {
-                continue;
-            }
-        }
-        else {
-            continue;
-        }
-        if let Ok(more_people) = load_people_file(&entry.path()) {
-            people.extend(more_people);
-        }
-    }
 
     if initialize {
         if let Err(err) = conn.execute("DROP TABLE IF EXISTS people", ()) {
@@ -1034,6 +1018,14 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
         if let Err(err) = res {
             eprintln!("Creation of people table failed: {}", err);
             return;
+        }
+    }
+
+    let mut paths = Vec::with_capacity(16);
+    for entry in data_dir.read_dir().expect("Failed to read register data directory").flatten() {
+        let file_name = entry.file_name().into_string();
+        if let Ok(file_name) = file_name && file_name.starts_with("people") {
+            paths.push(entry.path());
         }
     }
 
@@ -1049,51 +1041,55 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
 
     let tx = conn.transaction().expect("Could not create transaction");
     let mut insert = tx.prepare(&insert_sql).expect("Could not prepare INSERT");
-    for person in &people {
-        insert.execute(
-            named_params! {
-                ":key_person": &person.key_person,
-                ":key_uuid": &person.key_uuid,
-                ":key_mlbam": &person.key_mlbam,
-                ":key_retro": &person.key_retro,
-                ":key_bbref": &person.key_bbref,
-                ":key_bbref_minors": &person.key_bbref_minors,
-                ":key_fangraphs": &person.key_fangraphs,
-                ":key_npb": &person.key_npb,
-                ":key_sr_nfl": &person.key_sr_nfl,
-                ":key_sr_nba": &person.key_sr_nba,
-                ":key_sr_nhl": &person.key_sr_nhl,
-                ":key_wikidata": &person.key_wikidata,
-                ":name_last": &person.name_last,
-                ":name_first": &person.name_first,
-                ":name_given": &person.name_given,
-                ":name_suffix": &person.name_suffix,
-                ":name_matrilineal": &person.name_matrilineal,
-                ":name_nick": &person.name_nick,
-                ":birth_year": &person.birth_year,
-                ":birth_month": &person.birth_month,
-                ":birth_day": &person.birth_day,
-                ":death_year": &person.death_year,
-                ":death_month": &person.death_month,
-                ":death_day": &person.death_day,
-                ":pro_played_first": &person.pro_played_first,
-                ":pro_played_last": &person.pro_played_last,
-                ":mlb_played_first": &person.mlb_played_first,
-                ":mlb_played_last": &person.mlb_played_last,
-                ":col_played_first": &person.col_played_first,
-                ":col_played_last": &person.col_played_last,
-                ":pro_managed_first": &person.pro_managed_first,
-                ":pro_managed_last": &person.pro_managed_last,
-                ":mlb_managed_first": &person.mlb_managed_first,
-                ":mlb_managed_last": &person.mlb_managed_last,
-                ":col_managed_first": &person.col_managed_first,
-                ":col_managed_last": &person.col_managed_last,
-                ":pro_umpired_first": &person.pro_umpired_first,
-                ":pro_umpired_last": &person.pro_umpired_last,
-                ":mlb_umpired_first": &person.mlb_umpired_first,
-                ":mlb_umpired_last": &person.mlb_umpired_last
-            }
-        ).expect("Failed to insert into people table");
+    let mut people_loaded = 0;
+    for path in &paths {
+        for person in load_people_file(path).expect("Couldn't load people CSV file") {
+            insert.execute(
+                named_params! {
+                    ":key_person": &person.key_person,
+                    ":key_uuid": &person.key_uuid,
+                    ":key_mlbam": &person.key_mlbam,
+                    ":key_retro": &person.key_retro,
+                    ":key_bbref": &person.key_bbref,
+                    ":key_bbref_minors": &person.key_bbref_minors,
+                    ":key_fangraphs": &person.key_fangraphs,
+                    ":key_npb": &person.key_npb,
+                    ":key_sr_nfl": &person.key_sr_nfl,
+                    ":key_sr_nba": &person.key_sr_nba,
+                    ":key_sr_nhl": &person.key_sr_nhl,
+                    ":key_wikidata": &person.key_wikidata,
+                    ":name_last": &person.name_last,
+                    ":name_first": &person.name_first,
+                    ":name_given": &person.name_given,
+                    ":name_suffix": &person.name_suffix,
+                    ":name_matrilineal": &person.name_matrilineal,
+                    ":name_nick": &person.name_nick,
+                    ":birth_year": &person.birth_year,
+                    ":birth_month": &person.birth_month,
+                    ":birth_day": &person.birth_day,
+                    ":death_year": &person.death_year,
+                    ":death_month": &person.death_month,
+                    ":death_day": &person.death_day,
+                    ":pro_played_first": &person.pro_played_first,
+                    ":pro_played_last": &person.pro_played_last,
+                    ":mlb_played_first": &person.mlb_played_first,
+                    ":mlb_played_last": &person.mlb_played_last,
+                    ":col_played_first": &person.col_played_first,
+                    ":col_played_last": &person.col_played_last,
+                    ":pro_managed_first": &person.pro_managed_first,
+                    ":pro_managed_last": &person.pro_managed_last,
+                    ":mlb_managed_first": &person.mlb_managed_first,
+                    ":mlb_managed_last": &person.mlb_managed_last,
+                    ":col_managed_first": &person.col_managed_first,
+                    ":col_managed_last": &person.col_managed_last,
+                    ":pro_umpired_first": &person.pro_umpired_first,
+                    ":pro_umpired_last": &person.pro_umpired_last,
+                    ":mlb_umpired_first": &person.mlb_umpired_first,
+                    ":mlb_umpired_last": &person.mlb_umpired_last
+                }
+            ).expect("Failed to insert into people table");
+            people_loaded += 1;
+        }
     }
 
     drop(insert);
@@ -1112,7 +1108,7 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
         ).expect("Failed to create people indexes");
     }
 
-    println!("Loaded {} register entries", people.len());
+    println!("Loaded {} register entries", people_loaded);
 }
 
 
