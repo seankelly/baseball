@@ -17,17 +17,15 @@ pub struct Register {
 impl Register {
     pub fn load<T: io::Read>(&mut self, file: T) {
         let mut reader = ReaderBuilder::new().from_reader(file);
-        for result in reader.deserialize() {
-            if let Ok(person) = result {
-                self.person.push(person);
-            }
+        for person in reader.deserialize().flatten() {
+            self.person.push(person);
         }
     }
 
     pub fn from_file<T: io::Read>(file: T) -> Self {
         let mut register = Register::default();
         register.load(file);
-        return register;
+        register
     }
 
     pub fn build_retro_map(&mut self) {

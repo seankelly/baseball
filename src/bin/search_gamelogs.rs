@@ -71,11 +71,9 @@ fn load_gamelog_file<T: DeserializeOwned>(file: &path::Path) -> Result<Vec<T>, B
 
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
-        .from_path(&file)?;
-    for result in reader.deserialize() {
-        if let Ok(season) = result {
-            seasons.push(season);
-        }
+        .from_path(file)?;
+    for season in reader.deserialize().flatten() {
+        seasons.push(season);
         /*
         match result {
             Ok(season) => {
@@ -93,7 +91,7 @@ fn load_gamelog_file<T: DeserializeOwned>(file: &path::Path) -> Result<Vec<T>, B
 }
 
 
-fn dump_csv<T: serde::Serialize>(gamelog: &Vec<T>, csv_file: &path::Path) -> Result<(), Box<dyn Error>> {
+fn dump_csv<T: serde::Serialize>(gamelog: &[T], csv_file: &path::Path) -> Result<(), Box<dyn Error>> {
     let mut writer = csv::WriterBuilder::new()
         .has_headers(true)
         .from_path(&csv_file)?;
@@ -104,7 +102,7 @@ fn dump_csv<T: serde::Serialize>(gamelog: &Vec<T>, csv_file: &path::Path) -> Res
 }
 
 
-fn results<T: serde::Serialize>(games: &Vec<T>, limit: Option<usize>) -> Result<String, Box<dyn Error>> {
+fn results<T: serde::Serialize>(games: &[T], limit: Option<usize>) -> Result<String, Box<dyn Error>> {
     let mut wtr = Writer::from_writer(vec![]);
     let limit = limit.unwrap_or(games.len());
     for game in games.iter().take(limit) {

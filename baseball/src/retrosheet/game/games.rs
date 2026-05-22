@@ -566,16 +566,16 @@ impl GameLog {
         let (year, mmdd) = self.date.split_at(4);
         let (month, day) = mmdd.split_at(2);
         date.push_str(year);
-        date.push_str("-");
+        date.push('-');
         date.push_str(month);
-        date.push_str("-");
+        date.push('-');
         date.push_str(day);
         date
     }
 
     pub fn each_team_game(&self) -> (TeamGameLog, TeamGameLog) {
-        (TeamGameLog::from_home_team(&self),
-         TeamGameLog::from_visitor_team(&self))
+        (TeamGameLog::from_home_team(self),
+         TeamGameLog::from_visitor_team(self))
     }
 }
 

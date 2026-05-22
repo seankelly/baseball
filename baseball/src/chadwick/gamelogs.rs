@@ -89,7 +89,7 @@ pub struct PitchingGamelog {
 
 fn attribute_to_u8(attr: &quick_xml::events::attributes::Attribute) -> u8 {
     let attribute = str::from_utf8(attr.value.as_ref());
-    u8::from_str_radix(attribute.unwrap_or("0"), 10).unwrap_or(0)
+    attribute.unwrap_or("0").parse::<u8>().unwrap_or_default()
 }
 
 
@@ -104,11 +104,11 @@ fn attribute_to_bool(attr: &quick_xml::events::attributes::Attribute) -> bool {
 
 
 impl BattingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str, positions: &String) -> Self {
+    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str, positions: &str) -> Self {
         let team_id = team_id.to_owned();
         let game_id = game_id.to_owned();
         let player_id = player_id.to_owned();
-        let pos = positions.clone();
+        let pos = positions.to_owned();
         let mut batting = Self {
             player_id,
             game_id,
@@ -148,7 +148,7 @@ impl BattingGamelog {
         // Calculate plate appearances ahead of time for simplicity.
         batting.pa = batting.ab + batting.bb + batting.hbp + batting.sf + batting.sh;
 
-        return batting;
+        batting
     }
 }
 
@@ -185,7 +185,7 @@ impl FieldingGamelog {
             }
         }
 
-        return fielding;
+        fielding
     }
 }
 
@@ -240,7 +240,7 @@ impl PitchingGamelog {
             }
         }
 
-        return pitching;
+        pitching
     }
 }
 
@@ -341,23 +341,20 @@ pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> (Vec<BattingG
                         let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
                         let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
                         let team = active_team.as_ref().expect("Active team doesn't exist for Batting");
-                        let batting = BattingGamelog::from_element(
-                            &e, &game, &team, &player, &positions);
+                        let batting = BattingGamelog::from_element(&e, game, team, player, positions);
                         batting_gamelogs.push(batting);
                     }
                     b"pitcher" => {
                         let game = active_game.as_ref().expect("Active game doesn't exist for Pitching");
                         let team = active_team.as_ref().expect("Active team doesn't exist for Pitching");
-                        let pitcher = PitchingGamelog::from_element(
-                            &e, &game, &team);
+                        let pitcher = PitchingGamelog::from_element(&e, game, team);
                         pitching_gamelogs.push(pitcher);
                     }
                     b"fielding" => {
                         let player = active_player.as_ref().expect("Active player doesn't exist for Fielding");
                         let game = active_game.as_ref().expect("Active game doesn't exist for Fielding");
                         let team = active_team.as_ref().expect("Active team doesn't exist for Fielding");
-                        let fielding = FieldingGamelog::from_element(
-                            &e, &game, &team, &player);
+                        let fielding = FieldingGamelog::from_element(&e, game, team, player);
                         fielding_gamelogs.push(fielding);
                     }
                     _ => {}

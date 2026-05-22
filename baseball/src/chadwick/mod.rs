@@ -25,7 +25,7 @@ pub fn load_file<T>(file: &Path) -> Vec<T>
     where for<'de> T: Deserialize<'de>
 {
     let records_iter = load_file_iter(file);
-    return records_iter.collect();
+    records_iter.collect()
 }
 
 
@@ -52,7 +52,7 @@ pub fn load_file_iter<T>(file: &Path) -> ChadwickFileIter<T>
                             .expect("Couldn't open file.");
     let records = csv_reader.into_deserialize();
     ChadwickFileIter {
-        records: records,
+        records,
     }
 }
 

@@ -447,12 +447,12 @@ impl Linescore {
                     joined_score.push_str(&score.to_string());
                 }
                 Some(score) => {
-                    joined_score.push_str("(");
+                    joined_score.push('(');
                     joined_score.push_str(&score.to_string());
-                    joined_score.push_str(")");
+                    joined_score.push(')');
                 }
                 None => {
-                    joined_score.push_str("x");
+                    joined_score.push('x');
                 }
             }
         }
@@ -461,7 +461,7 @@ impl Linescore {
 
     /// Convert the split linescore into a format easier to split up for the database.
     pub fn sql_linescore(&self) -> String {
-        let string_score = self.linescore.iter()
+        self.linescore.iter()
             .map(|score| {
                 match score {
                     Some(score) => score.to_string(),
@@ -469,12 +469,11 @@ impl Linescore {
                 }
             })
             .reduce(|mut linescore, score| {
-                linescore.push_str(",");
+                linescore.push(',');
                 linescore.push_str(&score);
                 linescore
             })
-            .unwrap_or(String::from(""));
-        string_score
+            .unwrap_or(String::from(""))
     }
 }
 

@@ -602,7 +602,7 @@ impl<'a> PlayerGamelogs<'a> {
     }
 
     fn dated_gamelog_cmp<T: player::PlayerGamelog>(a: &DatedPlayerGamelogs<T>, b: &DatedPlayerGamelogs<T>) -> cmp::Ordering {
-        let player_cmp = a.0.player_id().cmp(&b.0.player_id());
+        let player_cmp = a.0.player_id().cmp(b.0.player_id());
         match player_cmp {
             cmp::Ordering::Equal => {},
             _ => { return player_cmp; }
@@ -612,7 +612,7 @@ impl<'a> PlayerGamelogs<'a> {
             cmp::Ordering::Equal => {},
             _ => { return date_cmp; }
         }
-        a.0.team_id().cmp(&b.0.team_id())
+        a.0.team_id().cmp(b.0.team_id())
     }
 
     fn order_dated_gamelogs<T, U>(season: i32, chadwick_gl: Vec<T>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<DatedPlayerGamelogs<U>>
@@ -636,7 +636,7 @@ impl<'a> PlayerGamelogs<'a> {
             internal_gamelogs.push((new_gl, value.date));
         }
         internal_gamelogs.sort_unstable_by(Self::dated_gamelog_cmp);
-        return internal_gamelogs;
+        internal_gamelogs
     }
 
     fn order_batting_gamelogs(season: i32, chadwick_gl: Vec<BattingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::BattingGamelog> {
@@ -747,13 +747,13 @@ impl<'a> PlayerGamelogs<'a> {
         for season in seasons {
             // Load team gamelogs.
             println!("Loading team game logs from {} season", season);
-            let team_games = self.load_team_gamelogs(&season)?;
+            let team_games = self.load_team_gamelogs(season)?;
 
             let season_numeric = season.parse::<u16>()?;
             let mut guts = Guts::new(season_numeric);
 
             println!("Loading player game logs from {} season", season);
-            let stdout = self.load_season_boxscores(&season)?;
+            let stdout = self.load_season_boxscores(season)?;
             let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
 
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
@@ -969,7 +969,6 @@ fn create_internal_tables(conn: &mut Connection) {
         let res = conn.execute(include_str!("../sql/create_guts.sql"), ());
         if let Err(err) = res {
             eprintln!("Creation of guts table failed: {}", err);
-            return;
         }
     }
 }
@@ -998,13 +997,11 @@ fn load_people_file(people_csv: &path::Path) -> Result<Vec<Person>, Box<dyn Erro
 
     let file = fs::File::open(people_csv)?;
     let mut reader = ReaderBuilder::new().from_reader(file);
-    for result in reader.deserialize() {
-        if let Ok(person) = result {
-            people.push(person);
-        }
+    for person in reader.deserialize().flatten() {
+        people.push(person);
     }
 
-    return Ok(people);
+    Ok(people)
 }
 
 fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initialize: bool) {
@@ -1013,24 +1010,18 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
 
     println!("Preparing to load register");
 
-    for entry in data_dir.read_dir().expect("Failed to read register data directory") {
-        if let Ok(entry) = entry {
-            let file_name = entry.file_name().into_string();
-            if let Ok(file_name) = file_name {
-                if !file_name.starts_with("people") {
-                    continue;
-                }
-            }
-            else {
+    for entry in data_dir.read_dir().expect("Failed to read register data directory").flatten() {
+        let file_name = entry.file_name().into_string();
+        if let Ok(file_name) = file_name {
+            if !file_name.starts_with("people") {
                 continue;
             }
-            match load_people_file(&entry.path()) {
-                Ok(more_people) => {
-                    people.extend(more_people);
-                }
-                Err(_) => {
-                }
-            }
+        }
+        else {
+            continue;
+        }
+        if let Ok(more_people) = load_people_file(&entry.path()) {
+            people.extend(more_people);
         }
     }
 
