@@ -1195,6 +1195,13 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    // If initializing then tables changed and indexes were created. Run PRAGMA optimize to have
+    // sqlite optimize its statistics.
+    if args.init {
+        println!("Optimizing database");
+        connection.pragma_update(None, "optimize", "")?;
+    }
+
     Ok(())
 }
 
