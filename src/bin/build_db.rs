@@ -323,8 +323,20 @@ impl<'a> GameLoader<'a> {
             println!("Loading games from {} season", season);
             let games = self.load_season_gamelog(season)?;
             println!("Found {} games", games.len());
+            // Iterate one more time through every pitching game to calculate the league ERA and the
+            // unscaled FIP values to get the FIP constant for this season.
+            let league_stats = games.iter().fold(PitcherStats::new_with_fip(0.0), |mut lgstats, g| {
+                lgstats.add_team_gamelog(&g);
+                lgstats
+            });
+            let league_fip_constant = league_stats.era() - league_stats.fip();
+            println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
+            let season_numeric = season.parse::<u16>()?;
+            let mut guts = Guts::new(season_numeric);
+            guts.fip_constant = league_fip_constant;
 
             let tx = self.conn.transaction().expect("Could not create transaction");
+            update_fip_constant(&tx, &guts)?;
             Self::insert_games(&tx, &games)?;
             tx.commit().expect("Failed to commit transaction");
         }
@@ -697,19 +709,11 @@ impl<'a> PlayerGamelogs<'a> {
         gamelogs
     }
 
-    fn order_pitching_gamelogs(season: i32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> (f32, Vec<player::PitchingGamelog>) {
+    fn order_pitching_gamelogs(season: i32, fip_constant: f32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::PitchingGamelog> {
         let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
-        // Iterate one more time through every pitching game to calculate the league ERA and the
-        // unscaled FIP values to get the FIP constant for this season.
-        let league_stats = dated_gamelogs.iter().fold(PitcherStats::new_with_fip(0.0), |mut lgstats, g| {
-            lgstats.add_gamelog(&g.0);
-            lgstats
-        });
 
-        let league_fip_constant = league_stats.era() - league_stats.fip();
-        println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
         let mut prev_player = String::with_capacity(10);
-        let mut pitcher_stats = PitcherStats::new_with_fip(league_fip_constant);
+        let mut pitcher_stats = PitcherStats::new_with_fip(fip_constant);
         let mut season_game = 1;
         let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
         for entry in dated_gamelogs.into_iter() {
@@ -733,7 +737,7 @@ impl<'a> PlayerGamelogs<'a> {
             }
             gamelogs.push(gl);
         }
-        (league_fip_constant, gamelogs)
+        gamelogs
     }
 
     fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
@@ -749,22 +753,19 @@ impl<'a> PlayerGamelogs<'a> {
             println!("Loading team game logs from {} season", season);
             let team_games = self.load_team_gamelogs(season)?;
 
-            let season_numeric = season.parse::<u16>()?;
-            let mut guts = Guts::new(season_numeric);
-
             println!("Loading player game logs from {} season", season);
             let stdout = self.load_season_boxscores(season)?;
             let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
 
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
             // marking which game number in the season this is for a player.
+            let season_numeric = season.parse::<u16>()?;
+            let fip_constant = get_fip_constant(&mut self.conn, season_numeric)?.unwrap_or_default();
             let batting_gamelogs = Self::order_batting_gamelogs(season_numeric.into(), batting_gamelogs, &team_games);
             let fielding_gamelogs = Self::order_fielding_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games);
-            let (fip_constant, pitching_gamelogs) = Self::order_pitching_gamelogs(season_numeric.into(), pitching_gamelogs, &team_games );
-            guts.fip_constant = fip_constant;
+            let pitching_gamelogs = Self::order_pitching_gamelogs(season_numeric.into(), fip_constant, pitching_gamelogs, &team_games);
 
             let tx = self.conn.transaction().expect("Could not create transaction");
-            update_fip_constant(&tx, &guts)?;
             Self::insert_batting_gamelogs(&tx, &batting_gamelogs)?;
             Self::insert_fielding_gamelogs(&tx, &fielding_gamelogs)?;
             Self::insert_pitching_gamelogs(&tx, &pitching_gamelogs)?;
@@ -893,6 +894,43 @@ impl PitcherStats {
         self.so = 0;
     }
 
+    fn add_team_gamelog(&mut self, gamelog: &games::GameLog) {
+        macro_rules! unwrap_retro_option {
+            ($field:expr) => {
+                match $field {
+                    games::RetrosheetOption::Some(v) => v,
+                    _ => return,
+                }
+            }
+        }
+
+        let ipouts: u32 = match gamelog.number_of_outs {
+            Some(outs) => outs.into(),
+            None => return,
+        };
+        self.ipouts += ipouts;
+        let v_i_er = unwrap_retro_option!(gamelog.visitor_individual_earned_runs);
+        let h_i_er = unwrap_retro_option!(gamelog.home_individual_earned_runs);
+        let er: u16 = (v_i_er + h_i_er).into();
+        self.er += er;
+        let v_hr = unwrap_retro_option!(gamelog.visitor_homeruns);
+        let h_hr = unwrap_retro_option!(gamelog.home_homeruns);
+        let hr: u16 = (v_hr + h_hr).into();
+        self.hr += hr;
+        let v_bb = unwrap_retro_option!(gamelog.visitor_walks);
+        let h_bb = unwrap_retro_option!(gamelog.home_walks);
+        let bb: u16 = (v_bb + h_bb).into();
+        self.bb += bb;
+        let v_hbp = unwrap_retro_option!(gamelog.visitor_hbp);
+        let h_hbp = unwrap_retro_option!(gamelog.home_hbp);
+        let hbp: u16 = (v_hbp + h_hbp).into();
+        self.hbp += hbp;
+        let v_so = unwrap_retro_option!(gamelog.visitor_strikeouts);
+        let h_so = unwrap_retro_option!(gamelog.home_strikeouts);
+        let so: u16 = (v_so + h_so).into();
+        self.so += so;
+    }
+
     fn add_gamelog(&mut self, gamelog: &player::PitchingGamelog) {
         let ipouts: u32 = gamelog.ipouts.into();
         self.ipouts += ipouts;
@@ -971,6 +1009,17 @@ fn create_internal_tables(conn: &mut Connection) {
             eprintln!("Creation of guts table failed: {}", err);
         }
     }
+}
+
+
+fn get_fip_constant(conn: &mut Connection, season: u16) -> Result<Option<f32>, Box<dyn Error>> {
+    let fip = conn.query_one(
+         "SELECT fip_constant FROM guts WHERE season = :season",
+        &[(":season", &season)],
+        |row| row.get(0)
+    )?;
+
+    Ok(fip)
 }
 
 
