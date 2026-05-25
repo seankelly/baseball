@@ -329,7 +329,7 @@ impl<'a> GameLoader<'a> {
             // Iterate one more time through every pitching game to calculate the league ERA and the
             // unscaled FIP values to get the FIP constant for this season.
             let league_stats = games.iter().fold(PitcherStats::new_with_fip(0.0), |mut lgstats, g| {
-                lgstats.add_team_gamelog(&g);
+                lgstats.add_team_gamelog(g);
                 lgstats
             });
             let league_fip_constant = league_stats.era() - league_stats.fip();
@@ -771,7 +771,7 @@ impl<'a> PlayerGamelogs<'a> {
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
             // marking which game number in the season this is for a player.
             let season_numeric = season.parse::<u16>()?;
-            let fip_constant = get_fip_constant(&mut self.conn, season_numeric)?.unwrap_or_default();
+            let fip_constant = get_fip_constant(self.conn, season_numeric)?.unwrap_or_default();
             let batting_gamelogs = Self::order_batting_gamelogs(season_numeric.into(), batting_gamelogs, &team_games);
             let fielding_gamelogs = Self::order_fielding_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games);
             let pitching_gamelogs = Self::order_pitching_gamelogs(season_numeric.into(), fip_constant, pitching_gamelogs, &team_games);
