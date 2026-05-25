@@ -8,7 +8,7 @@ use std::process::{ChildStdout, Command, Stdio};
 
 use baseball::register::Person;
 use baseball::retrosheet::game;
-use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball::chadwick::gamelogs::gamelogs_from_boxscores;
 use baseball_tools::games;
 use baseball_tools::player;
 use baseball_tools::internals::Guts;
@@ -638,7 +638,7 @@ impl<'a> PlayerGamelogs<'a> {
         a.0.team_id().cmp(b.0.team_id())
     }
 
-    fn order_dated_gamelogs<T, U>(season: i32, chadwick_gl: Vec<T>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<DatedPlayerGamelogs<U>>
+    fn order_dated_gamelogs<T, U>(season: i32, chadwick_gl: Vec<T>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<U>
         where U: player::PlayerGamelog + std::convert::From<T>
     {
         let game_count = chadwick_gl.len();
@@ -659,30 +659,30 @@ impl<'a> PlayerGamelogs<'a> {
             internal_gamelogs.push((new_gl, value.date));
         }
         internal_gamelogs.sort_unstable_by(Self::dated_gamelog_cmp);
-        internal_gamelogs
+        internal_gamelogs.into_iter().map(|entry| entry.0).collect()
     }
 
-    fn order_batting_gamelogs(season: i32, chadwick_gl: Vec<BattingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::BattingGamelog> {
-        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
-
-        let mut prev_player = String::with_capacity(10);
+    fn order_batting_gamelogs(mut gamelogs: Vec<player::BattingGamelog>) -> Vec<player::BattingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
         let mut slash_line = BattingSlashLine::new();
-        let mut season_game = 1;
-        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
-        for entry in dated_gamelogs.into_iter() {
-            let mut gl: player::BattingGamelog = entry.0;
-            if prev_player == gl.player_id {
+        // Start at zero because whether the current game is the same as the previous is check
+        // before setting the player's season game count.
+        let mut season_game = 0;
+        for gl in gamelogs.iter_mut() {
+            if last_game != gl.game_id {
+                season_game += 1;
+            }
+            if player == gl.player_id {
                 slash_line.add_gamelog(&gl);
                 let stats = slash_line.slash_line();
                 gl.season_game = season_game;
                 gl.avg = stats.0;
                 gl.obp = stats.1;
                 gl.slg = stats.2;
-                season_game += 1;
             }
             else {
-                prev_player.clear();
-                prev_player.push_str(&gl.player_id);
+                player = gl.player_id.as_str();
                 slash_line.clear();
                 slash_line.add_gamelog(&gl);
                 let stats = slash_line.slash_line();
@@ -690,63 +690,59 @@ impl<'a> PlayerGamelogs<'a> {
                 gl.avg = stats.0;
                 gl.obp = stats.1;
                 gl.slg = stats.2;
-                season_game = 2;
+                season_game = 1;
             }
-            gamelogs.push(gl);
+            last_game = gl.game_id.as_str();
         }
         gamelogs
     }
 
-    fn order_fielding_gamelogs(season: i32, chadwick_gl: Vec<FieldingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::FieldingGamelog> {
-        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
-
-        let mut prev_player = String::with_capacity(10);
-        let mut season_game = 1;
-        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
-        for entry in dated_gamelogs.into_iter() {
-            let mut gl: player::FieldingGamelog = entry.0;
-            if prev_player == gl.player_id {
-                gl.season_game = season_game;
+    fn order_fielding_gamelogs(mut gamelogs: Vec<player::FieldingGamelog>) -> Vec<player::FieldingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
+        let mut season_game = 0;
+        for gl in gamelogs.iter_mut() {
+            if last_game != gl.game_id {
                 season_game += 1;
             }
-            else {
-                prev_player.clear();
-                prev_player.push_str(&gl.player_id);
-                gl.season_game = 1;
-                season_game = 2;
+            if player == gl.player_id {
+                gl.season_game = season_game;
             }
-            gamelogs.push(gl);
+            else {
+                player = gl.player_id.as_str();
+                gl.season_game = 1;
+                season_game = 1;
+            }
+            last_game = gl.game_id.as_str();
         }
         gamelogs
     }
 
-    fn order_pitching_gamelogs(season: i32, fip_constant: f32, chadwick_gl: Vec<PitchingGamelog>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<player::PitchingGamelog> {
-        let dated_gamelogs = Self::order_dated_gamelogs(season, chadwick_gl, games);
-
-        let mut prev_player = String::with_capacity(10);
+    fn order_pitching_gamelogs(mut gamelogs: Vec<player::PitchingGamelog>, fip_constant: f32) -> Vec<player::PitchingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
         let mut pitcher_stats = PitcherStats::new_with_fip(fip_constant);
-        let mut season_game = 1;
-        let mut gamelogs = Vec::with_capacity(dated_gamelogs.len());
-        for entry in dated_gamelogs.into_iter() {
-            let mut gl: player::PitchingGamelog = entry.0;
-            if prev_player == gl.player_id {
+        let mut season_game = 0;
+        for gl in gamelogs.iter_mut() {
+            if last_game != gl.game_id {
+                season_game += 1;
+            }
+            if player == gl.player_id {
                 pitcher_stats.add_gamelog(&gl);
                 gl.season_game = season_game;
                 gl.era = pitcher_stats.era();
                 gl.fip = pitcher_stats.fip();
-                season_game += 1;
             }
             else {
-                prev_player.clear();
-                prev_player.push_str(&gl.player_id);
+                player = gl.player_id.as_str();
                 pitcher_stats.clear();
                 pitcher_stats.add_gamelog(&gl);
                 gl.season_game = 1;
                 gl.era = pitcher_stats.era();
                 gl.fip = pitcher_stats.fip();
-                season_game = 2;
+                season_game = 1;
             }
-            gamelogs.push(gl);
+            last_game = gl.game_id.as_str();
         }
         gamelogs
     }
@@ -772,9 +768,9 @@ impl<'a> PlayerGamelogs<'a> {
             // marking which game number in the season this is for a player.
             let season_numeric = season.parse::<u16>()?;
             let fip_constant = get_fip_constant(self.conn, season_numeric)?.unwrap_or_default();
-            let batting_gamelogs = Self::order_batting_gamelogs(season_numeric.into(), batting_gamelogs, &team_games);
-            let fielding_gamelogs = Self::order_fielding_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games);
-            let pitching_gamelogs = Self::order_pitching_gamelogs(season_numeric.into(), fip_constant, pitching_gamelogs, &team_games);
+            let batting_gamelogs = Self::order_batting_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), batting_gamelogs, &team_games));
+            let fielding_gamelogs = Self::order_fielding_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games));
+            let pitching_gamelogs = Self::order_pitching_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), pitching_gamelogs, &team_games), fip_constant);
 
             let tx = self.conn.transaction().expect("Could not create transaction");
             Self::insert_batting_gamelogs(&tx, &batting_gamelogs)?;
