@@ -1295,6 +1295,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let database = args.database.unwrap_or(path::PathBuf::from("database.db"));
     let mut connection = Connection::open(database)?;
+    connection.pragma_update(None, "temp_store", "memory")?;
 
     let seasons = args.seasons;
 
