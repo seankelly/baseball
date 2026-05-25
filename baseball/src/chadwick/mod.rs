@@ -10,7 +10,7 @@ pub mod games;
 pub mod gamelogs;
 
 pub use events::Event;
-pub use events::EventExtended;
+pub use events::ExtendedEvent;
 pub use events::Handedness;
 pub use crate::retrosheet::game::GameLog;
 pub use crate::retrosheet::game::TeamGameLog;
