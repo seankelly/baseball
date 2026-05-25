@@ -29,6 +29,9 @@ struct DatabaseArgs {
     #[arg(short = 'G', long)]
     gamelogs: bool,
 
+    #[arg(long)]
+    count_career_games: bool,
+
     #[arg(short, long)]
     games: bool,
 
@@ -399,6 +402,14 @@ struct TeamGameLogKey {
 struct TeamGameLogValue {
     date: chrono::NaiveDate,
     team_game_number: u16,
+}
+
+
+#[derive(Eq, PartialEq)]
+struct CareerGame {
+    player_id: String,
+    game_id: String,
+    date: chrono::NaiveDate,
 }
 
 
@@ -791,6 +802,100 @@ impl<'a> PlayerGamelogs<'a> {
 
         Ok(())
     }
+
+    fn order_career_games(&mut self, seasons: &[String]) -> Result<(), Box<dyn Error>> {
+        if seasons.is_empty() {
+            return Ok(());
+        }
+        // Convert the seasons to integers to ensure a consistent sort.
+        let mut seasons: Vec<u16> = seasons.iter().flat_map(|s| s.parse::<u16>()).collect();
+        seasons.sort_unstable();
+        let oldest = seasons.first().expect("Expected a season");
+        let newest = seasons.last().expect("Expected a season");
+        let start_date = format!("{}-01-01", oldest);
+        let end_date = format!("{}-12-31", newest);
+
+        self.order_table("batting_gamelogs", &start_date, &end_date)?;
+        self.order_table("fielding_gamelogs", &start_date, &end_date)?;
+        self.order_table("pitching_gamelogs", &start_date, &end_date)?;
+
+        Ok(())
+    }
+
+    fn order_table(&mut self, table: &str, start_date: &str, end_date: &str) -> Result<(), Box<dyn Error>> {
+        let tx = self.conn.transaction()?;
+        // Find all players affected by these seasons.
+        let sql = format!(
+            "SELECT DISTINCT(player_id)
+            FROM {} AS gl JOIN games ON gl.game_id = games.game_id
+            WHERE games.date BETWEEN :start AND :end",
+            table);
+        let mut statement = tx.prepare(&sql)?;
+        let players: Vec<String> = statement.query_map(
+            &[(":start", start_date), (":end", end_date)],
+            |row| row.get(0)
+        )?
+            .flatten()
+            .collect();
+        drop(statement);
+
+        // Update those players.
+        println!("Ordering table {} with {} players", table, players.len());
+
+        let select_player = format!(
+            "SELECT gl.game_id, games.date
+            FROM {} AS gl JOIN games ON gl.game_id = games.game_id
+            WHERE player_id = :player",
+            table);
+        let update_player = format!(
+            "UPDATE {} SET career_game = :game_number
+            WHERE player_id = :player AND game_id = :game_id",
+            table);
+        let mut select_statement = tx.prepare(&select_player)?;
+        let mut update_statement = tx.prepare(&update_player)?;
+        let mut games_updated = 0;
+        for player_id in &players {
+            let mut games: Vec<CareerGame> = select_statement.query_map(
+                &[(":player", player_id)],
+                |row| Ok(CareerGame {
+                    player_id: player_id.clone(),
+                    game_id: row.get(0)?,
+                    date: row.get(1)?,
+                })
+            )?
+                .flatten()
+                .collect();
+            games.sort_unstable();
+
+            // The fielding game log table will have a row for every position a player plays in a
+            // game. Each career game should only increment for different games so update all
+            // matching (player, game) options (even if they have a different team) and skip to the
+            // next unique game.
+            let mut game_number = 1;
+            let mut last_game = "";
+            for game in games.iter() {
+                if game.game_id == last_game {
+                    continue;
+                }
+                update_statement.execute(
+                    named_params! {
+                        ":game_number": game_number,
+                        ":player": &player_id,
+                        ":game_id": &game.game_id,
+                    }
+                )?;
+                game_number += 1;
+                games_updated += 1;
+                last_game = game.game_id.as_str();
+            }
+        }
+        drop(select_statement);
+        drop(update_statement);
+        tx.commit().expect("Failed to commit transaction");
+        println!("Updated {} games for {}", games_updated, table);
+
+        Ok(())
+    }
 }
 
 
@@ -976,6 +1081,30 @@ impl PitcherStats {
         else {
             f32::NAN
         }
+    }
+}
+
+impl cmp::PartialOrd for CareerGame {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl cmp::Ord for CareerGame {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        let cmp = self.date.cmp(&other.date);
+        match cmp {
+            cmp::Ordering::Equal => {},
+            _ => return cmp,
+        };
+
+        let cmp = self.player_id.cmp(&other.player_id);
+        match cmp {
+            cmp::Ordering::Equal => {},
+            _ => return cmp,
+        };
+
+        self.game_id.cmp(&other.game_id)
     }
 }
 
@@ -1189,6 +1318,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         if let Some(ref retrosheet_dir) = args.retrosheet_dir {
             let mut gamelogs = PlayerGamelogs::new(&mut connection, retrosheet_dir.to_owned());
             gamelogs.load(&seasons, args.init)?;
+            if args.count_career_games {
+                gamelogs.order_career_games(&seasons)?;
+            }
         }
         else {
             eprintln!("Cannot load gamelogs without retrosheet directory.");
