@@ -312,7 +312,7 @@ pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> (Vec<BattingG
                     b"boxscore" => {
                         active_game = Some(find_attribute(&e, b"game_id"));
                     }
-                    b"players" => {
+                    b"players" | b"pitching" => {
                         active_team = Some(find_attribute(&e, b"team"));
                     }
                     b"player" => {
