@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::io;
@@ -8,7 +9,7 @@ use std::process::{ChildStdout, Command, Stdio};
 
 use baseball::register::Person;
 use baseball::retrosheet::game;
-use baseball::chadwick::gamelogs::gamelogs_from_boxscores;
+use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
 use baseball_tools::games;
 use baseball_tools::player;
 use baseball_tools::internals::Guts;
@@ -573,16 +574,18 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(())
     }
 
-    fn load_team_gamelogs(&self, season: &str) -> Result<HashMap<TeamGameLogKey, TeamGameLogValue>, Box<dyn Error>> {
+    fn load_team_gamelogs(&self, season: &str) -> Result<(HashSet<String>, HashMap<TeamGameLogKey, TeamGameLogValue>), Box<dyn Error>> {
         let mut statement = self.conn.prepare(
             "SELECT game_id, date, visitor_team, visitor_team_game_number, home_team, home_team_game_number
             FROM games
             WHERE strftime('%Y', games.date) = :season"
         )?;
+        let mut game_ids = HashSet::new();
         let mut games = HashMap::new();
         let mut rows = statement.query(&[(":season", season)])?;
         while let Some(row) = rows.next()? {
             let game_id: String = row.get(0)?;
+            game_ids.insert(game_id.clone());
             let date: chrono::NaiveDate = row.get(1)?;
             let home_team = TeamGameLogKey {
                 game_id: game_id.clone(),
@@ -604,14 +607,19 @@ impl<'a> PlayerGamelogs<'a> {
             };
             games.insert(visitor_team, visitor_team_value);
         }
-        Ok(games)
+        Ok((game_ids, games))
     }
 
-    fn load_season_boxscores(&self, season: &String) -> Result<ChildStdout, Box<dyn Error>> {
+    fn load_season_boxscores(&self, season: &str, event_files: bool) -> Result<ChildStdout, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
         let mut cwbox = Command::new("cwbox");
         cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
-        cwbox.args(find_boxscore_files(&season_dir)?);
+        if event_files {
+            cwbox.args(find_event_files(&season_dir)?);
+        }
+        else {
+            cwbox.args(find_boxscore_files(&season_dir)?);
+        }
         let command = cwbox.stdin(Stdio::null()).stdout(Stdio::piped());
         match command.spawn() {
             Ok(mut child) => {
@@ -674,7 +682,7 @@ impl<'a> PlayerGamelogs<'a> {
                 season_game += 1;
             }
             if player == gl.player_id {
-                slash_line.add_gamelog(&gl);
+                slash_line.add_gamelog(gl);
                 let stats = slash_line.slash_line();
                 gl.season_game = season_game;
                 gl.avg = stats.0;
@@ -684,7 +692,7 @@ impl<'a> PlayerGamelogs<'a> {
             else {
                 player = gl.player_id.as_str();
                 slash_line.clear();
-                slash_line.add_gamelog(&gl);
+                slash_line.add_gamelog(gl);
                 let stats = slash_line.slash_line();
                 gl.season_game = 1;
                 gl.avg = stats.0;
@@ -728,7 +736,7 @@ impl<'a> PlayerGamelogs<'a> {
                 season_game += 1;
             }
             if player == gl.player_id {
-                pitcher_stats.add_gamelog(&gl);
+                pitcher_stats.add_gamelog(gl);
                 gl.season_game = season_game;
                 gl.era = pitcher_stats.era();
                 gl.fip = pitcher_stats.fip();
@@ -736,7 +744,7 @@ impl<'a> PlayerGamelogs<'a> {
             else {
                 player = gl.player_id.as_str();
                 pitcher_stats.clear();
-                pitcher_stats.add_gamelog(&gl);
+                pitcher_stats.add_gamelog(gl);
                 gl.season_game = 1;
                 gl.era = pitcher_stats.era();
                 gl.fip = pitcher_stats.fip();
@@ -758,11 +766,8 @@ impl<'a> PlayerGamelogs<'a> {
         for season in seasons {
             // Load team gamelogs.
             println!("Loading team game logs from {} season", season);
-            let team_games = self.load_team_gamelogs(season)?;
-
-            println!("Loading player game logs from {} season", season);
-            let stdout = self.load_season_boxscores(season)?;
-            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
+            let (game_ids, team_games) = self.load_team_gamelogs(season)?;
+            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = self.load_player_game_logs(season, &game_ids)?;
 
             // Transform Chadwick gamelogs into internal version for the database and sort to allow
             // marking which game number in the season this is for a player.
@@ -797,6 +802,55 @@ impl<'a> PlayerGamelogs<'a> {
         }
 
         Ok(())
+    }
+
+    fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<(Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>), Box<dyn Error>> {
+            // Load boxscores from the event files to get more accurate data.
+            println!("Loading player game logs from {} season", season);
+            let stdout = self.load_season_boxscores(season, true)?;
+            let (mut batting_gamelogs, mut fielding_gamelogs, mut pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
+
+            // Collect all games found from loading the event files and then check the overall list
+            // against what was found to detect any missing games.
+            let mut found_game_ids = HashSet::with_capacity(game_ids.len());
+            for game_log in &pitching_gamelogs {
+                found_game_ids.insert(game_log.game_id.clone());
+            }
+
+            let mut missing_game_ids = HashSet::new();
+            for game_id in game_ids {
+                if !found_game_ids.contains(game_id) {
+                    missing_game_ids.insert(game_id.clone());
+                }
+            }
+
+            // Missing some games from the event files. Load the box score event files to get the
+            // missing games.
+            if !missing_game_ids.is_empty() {
+                println!("Missing {} games from event files. Loading box score files.", missing_game_ids.len());
+                let stdout = self.load_season_boxscores(season, false)?;
+                let (be_batting_logs, be_fielding_logs, be_pitching_logs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
+
+                for game_log in be_batting_logs.into_iter() {
+                    if missing_game_ids.contains(&game_log.game_id) {
+                        batting_gamelogs.push(game_log);
+                    }
+                }
+
+                for game_log in be_fielding_logs.into_iter() {
+                    if missing_game_ids.contains(&game_log.game_id) {
+                        fielding_gamelogs.push(game_log);
+                    }
+                }
+
+                for game_log in be_pitching_logs.into_iter() {
+                    if missing_game_ids.contains(&game_log.game_id) {
+                        pitching_gamelogs.push(game_log);
+                    }
+                }
+            }
+
+            Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
     }
 
     fn order_career_games(&mut self, seasons: &[String]) -> Result<(), Box<dyn Error>> {
@@ -1102,6 +1156,26 @@ impl cmp::Ord for CareerGame {
 
         self.game_id.cmp(&other.game_id)
     }
+}
+
+
+fn find_event_files(season_dir: &path::Path) -> Result<Vec<String>, Box<dyn Error>> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(season_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        match extension {
+            "EVA" | "EVN" | "EVR" => {
+                if let Some(path_str) = path.to_str() {
+                    files.push(path_str.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(files)
 }
 
 
