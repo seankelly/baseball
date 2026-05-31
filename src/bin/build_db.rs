@@ -9,7 +9,7 @@ use std::process::{ChildStdout, Command, Stdio};
 
 use baseball::register::Person;
 use baseball::retrosheet::game;
-use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, BattingGamelog, FieldingGamelog, PitchingGamelog};
+use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, PlayerGameLogs};
 use baseball_tools::games;
 use baseball_tools::player;
 use baseball_tools::internals::Guts;
@@ -362,7 +362,7 @@ impl<'a> GameLoader<'a> {
     }
 }
 
-struct PlayerGamelogs<'a> {
+struct PlayerGamelogLoader<'a> {
     conn: &'a mut Connection,
     retrosheet_dir: path::PathBuf,
 }
@@ -414,7 +414,7 @@ struct CareerGame {
 }
 
 
-impl<'a> PlayerGamelogs<'a> {
+impl<'a> PlayerGamelogLoader<'a> {
     fn new(conn: &'a mut Connection, retrosheet_dir: path::PathBuf) -> Self {
         Self {
             conn,
@@ -804,7 +804,7 @@ impl<'a> PlayerGamelogs<'a> {
         Ok(())
     }
 
-    fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<(Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>), Box<dyn Error>> {
+    fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<PlayerGameLogs, Box<dyn Error>> {
             // Load boxscores from the event files to get more accurate data.
             println!("Loading player game logs from {} season", season);
             let stdout = self.load_season_boxscores(season, true)?;
@@ -1387,7 +1387,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     if args.gamelogs {
         if let Some(ref retrosheet_dir) = args.retrosheet_dir {
-            let mut gamelogs = PlayerGamelogs::new(&mut connection, retrosheet_dir.to_owned());
+            let mut gamelogs = PlayerGamelogLoader::new(&mut connection, retrosheet_dir.to_owned());
             gamelogs.load(&seasons, args.init)?;
             if args.count_career_games {
                 gamelogs.order_career_games(&seasons)?;

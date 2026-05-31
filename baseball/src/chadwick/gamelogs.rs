@@ -87,6 +87,9 @@ pub struct PitchingGamelog {
 }
 
 
+pub type PlayerGameLogs = (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>);
+
+
 fn attribute_to_u8(attr: &quick_xml::events::attributes::Attribute) -> u8 {
     let attribute = str::from_utf8(attr.value.as_ref());
     attribute.unwrap_or("0").parse::<u8>().unwrap_or_default()
@@ -290,7 +293,7 @@ fn find_player_info(element: &BytesStart) -> (String, String) {
 }
 
 
-pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>) {
+pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> PlayerGameLogs {
     let mut batting_gamelogs = Vec::new();
     let mut pitching_gamelogs = Vec::new();
     let mut fielding_gamelogs = Vec::new();
