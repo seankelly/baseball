@@ -1,6 +1,9 @@
 use std::default::Default;
 use baseball::chadwick::gamelogs;
 
+use rusqlite::{Row, Statement, named_params};
+use rusqlite::types::ValueRef;
+
 
 pub trait PlayerGamelog {
     fn player_id(&self) -> &str;
@@ -110,7 +113,140 @@ pub struct PitchingGamelog {
 }
 
 
+// Use a different method to map sqlite values to f32 because rusqlite won't map SQL NULLs to f32
+// NAN.
+fn map_sql_real_to_f32(value: ValueRef) -> f32 {
+    match value {
+        ValueRef::Null => {
+            f32::NAN
+        }
+        ValueRef::Integer(int) => {
+            int as f32
+        }
+        ValueRef::Real(real) => {
+            real as f32
+        }
+        ValueRef::Text(_) => {
+            f32::NAN
+        }
+        ValueRef::Blob(_) => {
+            // This shouldn't happen based on the expected data.
+            f32::NAN
+        }
+    }
+}
+
+
 impl BattingGamelog {
+    /// Write the struct to the database using named parameters.
+    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+        statement.execute(
+            named_params! {
+                ":player_id": &self.player_id,
+                ":game_id": &self.game_id,
+                ":team_id": &self.team_id,
+                ":career_game": &self.career_game,
+                ":season_game": &self.season_game,
+                ":team_game": &self.team_game,
+                ":pa": &self.pa,
+                ":ab": &self.ab,
+                ":r": &self.r,
+                ":h": &self.h,
+                ":d": &self.d,
+                ":t": &self.t,
+                ":hr": &self.hr,
+                ":rbi": &self.rbi,
+                ":rbi2out": &self.rbi2out,
+                ":bb": &self.bb,
+                ":ibb": &self.ibb,
+                ":so": &self.so,
+                ":gidp": &self.gidp,
+                ":hbp": &self.hbp,
+                ":sh": &self.sh,
+                ":sf": &self.sf,
+                ":sb": &self.sb,
+                ":cs": &self.cs,
+                ":avg": &self.avg,
+                ":obp": &self.obp,
+                ":slg": &self.slg,
+                ":woba": &self.woba,
+                ":babip": &self.babip,
+                ":pos": &self.pos,
+            }
+        )
+    }
+
+    // This could maybe come from a #[derive].
+    pub fn column_names<'a>() -> Vec<&'a str> {
+        vec![
+            "player_id",
+            "game_id",
+            "team_id",
+            "career_game",
+            "season_game",
+            "team_game",
+            "pa",
+            "ab",
+            "r",
+            "h",
+            "d",
+            "t",
+            "hr",
+            "rbi",
+            "rbi2out",
+            "bb",
+            "ibb",
+            "so",
+            "gidp",
+            "hbp",
+            "sh",
+            "sf",
+            "sb",
+            "cs",
+            "bavg",
+            "obp",
+            "slg",
+            "woba",
+            "babip",
+            "pos",
+        ]
+    }
+
+    /// Read one row from the database to create the full struct.
+    pub fn read_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            player_id: row.get(0)?,
+            game_id: row.get(1)?,
+            team_id: row.get(2)?,
+            career_game: row.get(3)?,
+            season_game: row.get(4)?,
+            team_game: row.get(5)?,
+            pa: row.get(6)?,
+            ab: row.get(7)?,
+            r: row.get(8)?,
+            h: row.get(9)?,
+            d: row.get(10)?,
+            t: row.get(11)?,
+            hr: row.get(12)?,
+            rbi: row.get(13)?,
+            rbi2out: row.get(14)?,
+            bb: row.get(15)?,
+            ibb: row.get(16)?,
+            so: row.get(17)?,
+            gidp: row.get(18)?,
+            hbp: row.get(19)?,
+            sh: row.get(20)?,
+            sf: row.get(21)?,
+            sb: row.get(22)?,
+            cs: row.get(23)?,
+            avg: map_sql_real_to_f32(row.get_ref(24)?),
+            obp: map_sql_real_to_f32(row.get_ref(25)?),
+            slg: map_sql_real_to_f32(row.get_ref(26)?),
+            woba: map_sql_real_to_f32(row.get_ref(27)?),
+            babip: map_sql_real_to_f32(row.get_ref(28)?),
+            pos: row.get(29)?,
+        })
+    }
 }
 
 
@@ -173,6 +309,28 @@ impl From<gamelogs::BattingGamelog> for BattingGamelog {
 
 
 impl FieldingGamelog {
+    /// Write the struct to the database using named parameters.
+    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+        statement.execute(
+            named_params! {
+                ":player_id": &self.player_id,
+                ":game_id": &self.game_id,
+                ":team_id": &self.team_id,
+                ":career_game": &self.career_game,
+                ":season_game": &self.season_game,
+                ":team_game": &self.team_game,
+                ":pos": &self.pos,
+                ":o": &self.o,
+                ":po": &self.po,
+                ":a": &self.a,
+                ":e": &self.e,
+                ":dp": &self.dp,
+                ":tp": &self.tp,
+                ":bip": &self.bip,
+                ":bf": &self.bf,
+            }
+        )
+    }
 }
 
 
@@ -211,6 +369,43 @@ impl From<gamelogs::FieldingGamelog> for FieldingGamelog {
 
 
 impl PitchingGamelog {
+    /// Write the struct to the database using named parameters.
+    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+        statement.execute(
+            named_params! {
+                ":player_id": &self.player_id,
+                ":game_id": &self.game_id,
+                ":team_id": &self.team_id,
+                ":career_game": &self.career_game,
+                ":season_game": &self.season_game,
+                ":team_game": &self.team_game,
+                ":gs": &self.gs,
+                ":cg": &self.cg,
+                ":sho": &self.sho,
+                ":gf": &self.gf,
+                ":ipouts": &self.ipouts,
+                ":ab": &self.ab,
+                ":bf": &self.bf,
+                ":h": &self.h,
+                ":r": &self.r,
+                ":er": &self.er,
+                ":hr": &self.hr,
+                ":bb": &self.bb,
+                ":ibb": &self.ibb,
+                ":so": &self.so,
+                ":wp": &self.wp,
+                ":bk": &self.bk,
+                ":hbp": &self.hbp,
+                ":gb": &self.gb,
+                ":fb": &self.fb,
+                ":p": &self.p,
+                ":s": &self.s,
+                ":decision": &self.decision,
+                ":era": &self.era,
+                ":fip": &self.fip,
+            }
+        )
+    }
 }
 
 

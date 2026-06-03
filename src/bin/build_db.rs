@@ -455,40 +455,7 @@ impl<'a> PlayerGamelogLoader<'a> {
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
-            insert.execute(
-                named_params! {
-                    ":player_id": &game.player_id,
-                    ":game_id": &game.game_id,
-                    ":team_id": &game.team_id,
-                    ":career_game": &game.career_game,
-                    ":season_game": &game.season_game,
-                    ":team_game": &game.team_game,
-                    ":pa": &game.pa,
-                    ":ab": &game.ab,
-                    ":r": &game.r,
-                    ":h": &game.h,
-                    ":d": &game.d,
-                    ":t": &game.t,
-                    ":hr": &game.hr,
-                    ":rbi": &game.rbi,
-                    ":rbi2out": &game.rbi2out,
-                    ":bb": &game.bb,
-                    ":ibb": &game.ibb,
-                    ":so": &game.so,
-                    ":gidp": &game.gidp,
-                    ":hbp": &game.hbp,
-                    ":sh": &game.sh,
-                    ":sf": &game.sf,
-                    ":sb": &game.sb,
-                    ":cs": &game.cs,
-                    ":avg": &game.avg,
-                    ":obp": &game.obp,
-                    ":slg": &game.slg,
-                    ":woba": &game.woba,
-                    ":babip": &game.babip,
-                    ":pos": &game.pos,
-                }
-            )?;
+            game.write_row(&mut insert)?;
         }
 
         Ok(())
@@ -502,25 +469,7 @@ impl<'a> PlayerGamelogLoader<'a> {
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
-            insert.execute(
-                named_params! {
-                    ":player_id": &game.player_id,
-                    ":game_id": &game.game_id,
-                    ":team_id": &game.team_id,
-                    ":career_game": &game.career_game,
-                    ":season_game": &game.season_game,
-                    ":team_game": &game.team_game,
-                    ":pos": &game.pos,
-                    ":o": &game.o,
-                    ":po": &game.po,
-                    ":a": &game.a,
-                    ":e": &game.e,
-                    ":dp": &game.dp,
-                    ":tp": &game.tp,
-                    ":bip": &game.bip,
-                    ":bf": &game.bf,
-                }
-            )?;
+            game.write_row(&mut insert)?;
         }
 
         Ok(())
@@ -535,40 +484,7 @@ impl<'a> PlayerGamelogLoader<'a> {
 
         let mut insert = tx.prepare(&insert_sql)?;
         for game in gamelogs {
-            insert.execute(
-                named_params! {
-                    ":player_id": &game.player_id,
-                    ":game_id": &game.game_id,
-                    ":team_id": &game.team_id,
-                    ":career_game": &game.career_game,
-                    ":season_game": &game.season_game,
-                    ":team_game": &game.team_game,
-                    ":gs": &game.gs,
-                    ":cg": &game.cg,
-                    ":sho": &game.sho,
-                    ":gf": &game.gf,
-                    ":ipouts": &game.ipouts,
-                    ":ab": &game.ab,
-                    ":bf": &game.bf,
-                    ":h": &game.h,
-                    ":r": &game.r,
-                    ":er": &game.er,
-                    ":hr": &game.hr,
-                    ":bb": &game.bb,
-                    ":ibb": &game.ibb,
-                    ":so": &game.so,
-                    ":wp": &game.wp,
-                    ":bk": &game.bk,
-                    ":hbp": &game.hbp,
-                    ":gb": &game.gb,
-                    ":fb": &game.fb,
-                    ":p": &game.p,
-                    ":s": &game.s,
-                    ":decision": &game.decision,
-                    ":era": &game.era,
-                    ":fip": &game.fip,
-                }
-            )?;
+            game.write_row(&mut insert)?;
         }
 
         Ok(())
