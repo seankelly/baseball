@@ -182,38 +182,41 @@ fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<
     let mut streak_minimum = 2;
     for (player_name, games) in player_streaks.iter() {
         let mut streak_start = None;
+        let mut streak_end = None;
         let mut streak_length = 0;
         for game_entry in games {
             if game_entry.result {
                 streak_length += 1;
                 if streak_start.is_none() {
-                    streak_start = Some(game_entry.game_id.clone());
+                    streak_start = Some(&game_entry.game_id);
                 }
+                streak_end = Some(&game_entry.game_id);
             }
             else {
-                if let Some(start) = streak_start {
+                if let (Some(start), Some(end)) = (streak_start, streak_end) {
                     if streak_length >= streak_minimum {
                         let span = StreakSpan {
                             key: player_name,
                             start: start.clone(),
-                            end: game_entry.game_id.clone(),
+                            end: end.clone(),
                             length: streak_length,
                         };
                         streaks.push(span);
                     }
                 }
                 streak_start = None;
+                streak_end = None;
                 streak_length = 0;
             }
         }
 
         // Check for streaks that end with the player's final game.
-        if let Some(start) = streak_start {
+        if let (Some(start), Some(end)) = (streak_start, streak_end) {
             if streak_length >= streak_minimum {
                 let span = StreakSpan {
                     key: player_name,
                     start: start.clone(),
-                    end: games.last().unwrap().game_id.clone(),
+                    end: end.clone(),
                     length: streak_length,
                 };
                 streaks.push(span);
