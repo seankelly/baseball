@@ -1,6 +1,10 @@
-use std::default::Default;
+use std::error::Error;
+
 use baseball::chadwick::gamelogs;
 
+use crate::search::CelEval;
+
+use cel::{Context, Program, Value};
 use rusqlite::{Row, Statement, named_params};
 use rusqlite::types::ValueRef;
 
@@ -16,7 +20,6 @@ pub trait PlayerGamelog {
 }
 
 
-#[derive(Default)]
 #[allow(non_snake_case)]
 pub struct BattingGamelog {
     pub player_id: String,
@@ -56,7 +59,6 @@ pub struct BattingGamelog {
 }
 
 
-#[derive(Default)]
 #[allow(non_snake_case)]
 pub struct FieldingGamelog {
     pub player_id: String,
@@ -77,7 +79,6 @@ pub struct FieldingGamelog {
 }
 
 
-#[derive(Default)]
 #[allow(non_snake_case)]
 pub struct PitchingGamelog {
     pub player_id: String,
@@ -258,6 +259,46 @@ impl PlayerGamelog for BattingGamelog {
     fn team_id(&self) -> &str { &self.team_id }
 
     fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+}
+
+
+impl CelEval for BattingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>> {
+        for name in variables {
+            match *name {
+                "career_game" => context.add_variable("career_game", self.career_game)?,
+                "season_game" => context.add_variable("season_game", self.season_game)?,
+                "team_game" => context.add_variable("team_game", self.team_game)?,
+                "pa" => context.add_variable("pa", self.pa)?,
+                "ab" => context.add_variable("ab", self.ab)?,
+                "r" => context.add_variable("r", self.r)?,
+                "h" => context.add_variable("h", self.h)?,
+                "d" => context.add_variable("d", self.d)?,
+                "t" => context.add_variable("t", self.t)?,
+                "hr" => context.add_variable("hr", self.hr)?,
+                "rbi" => context.add_variable("rbi", self.rbi)?,
+                "rbi2out" => context.add_variable("rbi2out", self.rbi2out)?,
+                "bb" => context.add_variable("bb", self.bb)?,
+                "ibb" => context.add_variable("ibb", self.ibb)?,
+                "so" => context.add_variable("so", self.so)?,
+                "gidp" => context.add_variable("gidp", self.gidp)?,
+                "hbp" => context.add_variable("hbp", self.hbp)?,
+                "sh" => context.add_variable("sh", self.sh)?,
+                "sf" => context.add_variable("sf", self.sf)?,
+                "sb" => context.add_variable("sb", self.sb)?,
+                "cs" => context.add_variable("cs", self.cs)?,
+                "avg" => context.add_variable("avg", self.avg)?,
+                "obp" => context.add_variable("obp", self.obp)?,
+                "slg" => context.add_variable("slg", self.slg)?,
+                "woba" => context.add_variable("woba", self.woba)?,
+                "babip" => context.add_variable("babip", self.babip)?,
+                "pos" => context.add_variable("pos", self.pos.clone())?,
+                _ => {},
+            }
+        }
+
+        Ok(())
+    }
 }
 
 

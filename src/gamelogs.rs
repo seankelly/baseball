@@ -1,13 +1,13 @@
 use std::error::Error;
 
-use crate::search::CelSearch;
+use crate::search::CelEval;
 
 use baseball::chadwick;
 use cel::Context;
 
 
-impl CelSearch for chadwick::gamelogs::BattingGamelog {
-    fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
+impl CelEval for chadwick::gamelogs::BattingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, _variables: &[&str]) -> Result<(), Box<dyn Error>> {
         context.add_variable("ab", self.ab)?;
         context.add_variable("pa", self.pa)?;
         context.add_variable("r", self.r)?;
@@ -31,8 +31,8 @@ impl CelSearch for chadwick::gamelogs::BattingGamelog {
 }
 
 
-impl CelSearch for chadwick::gamelogs::FieldingGamelog {
-    fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
+impl CelEval for chadwick::gamelogs::FieldingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, _variables: &[&str]) -> Result<(), Box<dyn Error>> {
         context.add_variable("pos", self.pos)?;
         context.add_variable("o", self.o)?;
         context.add_variable("po", self.po)?;
@@ -47,8 +47,8 @@ impl CelSearch for chadwick::gamelogs::FieldingGamelog {
 }
 
 
-impl CelSearch for chadwick::gamelogs::PitchingGamelog {
-    fn add_cel_variables(&self, context: &mut Context) -> Result<(), Box<dyn Error>> {
+impl CelEval for chadwick::gamelogs::PitchingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, _variables: &[&str]) -> Result<(), Box<dyn Error>> {
         context.add_variable("gs", self.gs)?;
         context.add_variable("gf", self.gf)?;
         context.add_variable("cg", self.cg)?;

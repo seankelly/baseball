@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path;
 
 use baseball::chadwick::gamelogs::{BattingGamelog, FieldingGamelog, PitchingGamelog};
-use baseball_tools::search::{Search, SortOrder};
+use baseball_tools::search::{CelExec, SortOrder};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use csv::Writer;
@@ -115,7 +115,13 @@ fn results<T: serde::Serialize>(games: &[T], limit: Option<usize>) -> Result<Str
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args = GamelogArgs::parse();
-    let search = Search::new(args.filter.as_deref(), args.sort_key.as_deref())?;
+    let mut search = CelExec::new();
+    if let Some(program) = args.filter.as_deref() {
+        search.set_filter(program)?;
+    }
+    if let Some(program) = args.sort_key.as_deref() {
+        search.set_sort(program)?;
+    }
 
     let sort_order = args.sort_order.unwrap_or(CliSortOrder::Asc).into();
 
