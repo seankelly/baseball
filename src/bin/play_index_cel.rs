@@ -106,10 +106,7 @@ struct StreakEntry {
 }
 
 
-fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>> {
-    let mut exec = CelExec::new();
-    exec.set_condition(&streak_args.condition)?;
-
+fn load_player_batting(conn: &Connection) -> Result<HashMap<String, Vec<player::BattingGamelog>>, Box<dyn Error>> {
     let mut select_sql = String::with_capacity(250);
     select_sql.push_str("SELECT ");
     for (idx, name) in player::BattingGamelog::column_names().iter().enumerate() {
@@ -133,11 +130,18 @@ fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<
     }
     let load_end = Instant::now();
     println!("Loaded {} players ({} games) in {:?}", players.len(), found_game_logs, load_end.duration_since(load_start));
+    Ok(players)
+}
+
+
+fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>> {
+    let mut exec = CelExec::new();
+    exec.set_condition(&streak_args.condition)?;
+
+    let mut players = load_player_batting(conn)?;
 
     let sort_start = Instant::now();
-    for games in players.values_mut() {
-        games.sort_unstable_by_key(|g| g.career_game);
-    }
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game));
     let sort_end = Instant::now();
     println!("Sorted all games in {:?}", sort_end.duration_since(sort_start));
 
