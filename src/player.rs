@@ -299,6 +299,43 @@ impl CelEval for BattingGamelog {
 
         Ok(())
     }
+
+    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+        for name in variables {
+            match *name {
+                "career_game" => {},
+                "season_game" => {},
+                "team_game" => {},
+                "pa" => {},
+                "ab" => {},
+                "r" => {},
+                "h" => {},
+                "d" => {},
+                "t" => {},
+                "hr" => {},
+                "rbi" => {},
+                "rbi2out" => {},
+                "bb" => {},
+                "ibb" => {},
+                "so" => {},
+                "gidp" => {},
+                "hbp" => {},
+                "sh" => {},
+                "sf" => {},
+                "sb" => {},
+                "cs" => {},
+                "avg" => {},
+                "obp" => {},
+                "slg" => {},
+                "woba" => {},
+                "babip" => {},
+                "pos" => {},
+                _ => return false,
+            }
+        }
+
+        true
+    }
 }
 
 

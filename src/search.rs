@@ -10,6 +10,8 @@ use rayon::prelude::*;
 
 pub trait CelEval {
     fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>>;
+
+    fn check_cel_variables(&self, variables: &[&str]) -> bool;
 }
 
 
