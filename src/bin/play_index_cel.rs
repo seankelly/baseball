@@ -4,9 +4,8 @@ use std::path;
 use std::time::Instant;
 
 use baseball_tools::player;
-use baseball_tools::search::{CelEval, CelExec};
+use baseball_tools::search::CelExec;
 
-use cel::{Context, Program, Value};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rayon::prelude::*;
 use rusqlite::{Connection, OpenFlags};
@@ -93,19 +92,6 @@ struct WindowArgs {
 }
 
 
-struct StreakSpan<T> {
-    key: T,
-    start: String,
-    end: String,
-    length: u32,
-}
-
-struct StreakEntry {
-    game_id: String,
-    result: bool,
-}
-
-
 fn load_player_batting(conn: &Connection) -> Result<HashMap<String, Vec<player::BattingGamelog>>, Box<dyn Error>> {
     let mut select_sql = String::with_capacity(250);
     select_sql.push_str("SELECT ");
@@ -147,100 +133,13 @@ fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<
 
     println!("Running program");
     let eval_start = Instant::now();
-    let context = Context::default();
-    let program = Program::compile(&streak_args.condition)?;
-    let references = program.references();
-    let variables = references.variables();
-    let player_streaks: HashMap<_, _> = players.par_iter().map(|kv| {
-        let (key, value) = kv;
-        let bool_value: Vec<_> = value.iter().map(|e| {
-            let mut ctx = context.new_inner_scope();
-            let result;
-            if e.add_cel_variables(&mut ctx, &variables).is_err() {
-                result = false;
-            }
-            else {
-                result = match program.execute(&ctx) {
-                    Ok(Value::Bool(true)) => true,
-                    Ok(_) => false,
-                    Err(error) => {
-                        eprintln!("error evaluating: {error}");
-                        false
-                    }
-                };
-            }
-            let entry = StreakEntry {
-                game_id: e.game_id.clone(),
-                result,
-            };
-            entry
-        }).collect();
-        (key, bool_value)
-    }).collect();
+    let player_streaks = exec.streak_eval(&players);
     let eval_end = Instant::now();
     println!("Evaluated in {:?}", eval_end.duration_since(eval_start));
 
     println!("Checking results");
     let check_start = Instant::now();
-    let mut streaks = Vec::with_capacity(150);
-    let mut streak_minimum = 2;
-    for (player_name, games) in player_streaks.iter() {
-        let mut streak_start = None;
-        let mut streak_end = None;
-        let mut streak_length = 0;
-        for game_entry in games {
-            if game_entry.result {
-                streak_length += 1;
-                if streak_start.is_none() {
-                    streak_start = Some(&game_entry.game_id);
-                }
-                streak_end = Some(&game_entry.game_id);
-            }
-            else {
-                if let (Some(start), Some(end)) = (streak_start, streak_end) {
-                    if streak_length >= streak_minimum {
-                        let span = StreakSpan {
-                            key: player_name,
-                            start: start.clone(),
-                            end: end.clone(),
-                            length: streak_length,
-                        };
-                        streaks.push(span);
-                    }
-                }
-                streak_start = None;
-                streak_end = None;
-                streak_length = 0;
-            }
-        }
-
-        // Check for streaks that end with the player's final game.
-        if let (Some(start), Some(end)) = (streak_start, streak_end) {
-            if streak_length >= streak_minimum {
-                let span = StreakSpan {
-                    key: player_name,
-                    start: start.clone(),
-                    end: end.clone(),
-                    length: streak_length,
-                };
-                streaks.push(span);
-            }
-        }
-
-        // Sort the spans and check the 100th entry to see if the streak minimum length should
-        // increase. If so, prune the list to only spans meeting the new minimum.
-        streaks.sort_unstable_by(|a, b| b.length.cmp(&a.length));
-        let mut prune_streaks = false;
-        if let Some(span) = streaks.get(100) {
-            if span.length > streak_minimum {
-                prune_streaks = true;
-                streak_minimum = span.length;
-            }
-        }
-        if prune_streaks {
-            streaks.retain(|span| span.length >= streak_minimum);
-        }
-    }
+    let streaks = CelExec::find_streaks(&player_streaks);
     let check_end = Instant::now();
     println!("Checked in {:?}", check_end.duration_since(check_start));
 

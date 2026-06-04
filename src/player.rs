@@ -4,7 +4,7 @@ use baseball::chadwick::gamelogs;
 
 use crate::search::CelEval;
 
-use cel::{Context, Program, Value};
+use cel::Context;
 use rusqlite::{Row, Statement, named_params};
 use rusqlite::types::ValueRef;
 
