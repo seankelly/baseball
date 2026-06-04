@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::error::Error;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use crate::player;
 
@@ -29,7 +30,7 @@ pub enum SortOrder {
 }
 
 
-pub struct StreakSpan<T> {
+pub struct StreakSpan<T: Display> {
     pub key: T,
     pub start: String,
     pub end: String,
@@ -110,7 +111,7 @@ impl<'a> CelExec<'a> {
         }
     }
 
-    pub fn find_streaks<T>(streak_map: &HashMap<T, Vec<StreakEntry>>) -> Vec<StreakSpan<&T>> {
+    pub fn find_streaks<T: Display>(streak_map: &HashMap<T, Vec<StreakEntry>>) -> Vec<StreakSpan<&T>> {
         let mut streaks = Vec::with_capacity(150);
         let mut streak_minimum = 2;
         for (key, entries) in streak_map.iter() {

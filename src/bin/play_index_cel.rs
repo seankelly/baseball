@@ -4,7 +4,7 @@ use std::path;
 use std::time::Instant;
 
 use baseball_tools::player;
-use baseball_tools::search::CelExec;
+use baseball_tools::search::{CelExec, StreakSpan};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rayon::prelude::*;
@@ -143,6 +143,15 @@ fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<
     let check_end = Instant::now();
     println!("Checked in {:?}", check_end.duration_since(check_start));
 
+    display_streaks(streaks);
+
+    Ok(())
+}
+
+fn find_player_game_log_streaks() {
+}
+
+fn display_streaks<T: std::fmt::Display>(streaks: Vec<StreakSpan<T>>) {
     println!("Total streaks: {}", streaks.len());
     if streaks.len() < 200 {
         println!("player ID | game start | game end | streak length");
@@ -150,8 +159,6 @@ fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<
             println!("{} | {} | {} | {}", streak.key, streak.start, streak.end, streak.length);
         }
     }
-
-    Ok(())
 }
 
 
