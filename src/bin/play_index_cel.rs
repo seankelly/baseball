@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path;
 use std::time::Instant;
 
+use baseball_tools::database::Sql;
 use baseball_tools::player;
 use baseball_tools::search::{CelExec, StreakSpan};
 

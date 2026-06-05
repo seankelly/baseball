@@ -1,4 +1,5 @@
 
+pub mod database;
 pub mod gamelogs;
 pub mod games;
 pub mod internals;

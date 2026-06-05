@@ -2,10 +2,11 @@ use std::error::Error;
 
 use baseball::chadwick::gamelogs;
 
+use crate::database::Sql;
 use crate::search::CelEval;
 
 use cel::Context;
-use rusqlite::{Row, Statement, named_params};
+use rusqlite::{Row, Statement, Transaction, named_params};
 use rusqlite::types::ValueRef;
 
 
@@ -138,119 +139,6 @@ fn map_sql_real_to_f32(value: ValueRef) -> f32 {
 }
 
 
-impl BattingGamelog {
-    /// Write the struct to the database using named parameters.
-    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
-        statement.execute(
-            named_params! {
-                ":player_id": &self.player_id,
-                ":game_id": &self.game_id,
-                ":team_id": &self.team_id,
-                ":career_game": &self.career_game,
-                ":season_game": &self.season_game,
-                ":team_game": &self.team_game,
-                ":pa": &self.pa,
-                ":ab": &self.ab,
-                ":r": &self.r,
-                ":h": &self.h,
-                ":d": &self.d,
-                ":t": &self.t,
-                ":hr": &self.hr,
-                ":rbi": &self.rbi,
-                ":rbi2out": &self.rbi2out,
-                ":bb": &self.bb,
-                ":ibb": &self.ibb,
-                ":so": &self.so,
-                ":gidp": &self.gidp,
-                ":hbp": &self.hbp,
-                ":sh": &self.sh,
-                ":sf": &self.sf,
-                ":sb": &self.sb,
-                ":cs": &self.cs,
-                ":avg": &self.avg,
-                ":obp": &self.obp,
-                ":slg": &self.slg,
-                ":woba": &self.woba,
-                ":babip": &self.babip,
-                ":pos": &self.pos,
-            }
-        )
-    }
-
-    // This could maybe come from a #[derive].
-    pub fn column_names<'a>() -> Vec<&'a str> {
-        vec![
-            "player_id",
-            "game_id",
-            "team_id",
-            "career_game",
-            "season_game",
-            "team_game",
-            "pa",
-            "ab",
-            "r",
-            "h",
-            "d",
-            "t",
-            "hr",
-            "rbi",
-            "rbi2out",
-            "bb",
-            "ibb",
-            "so",
-            "gidp",
-            "hbp",
-            "sh",
-            "sf",
-            "sb",
-            "cs",
-            "bavg",
-            "obp",
-            "slg",
-            "woba",
-            "babip",
-            "pos",
-        ]
-    }
-
-    /// Read one row from the database to create the full struct.
-    pub fn read_row(row: &Row) -> Result<Self, rusqlite::Error> {
-        Ok(Self {
-            player_id: row.get(0)?,
-            game_id: row.get(1)?,
-            team_id: row.get(2)?,
-            career_game: row.get(3)?,
-            season_game: row.get(4)?,
-            team_game: row.get(5)?,
-            pa: row.get(6)?,
-            ab: row.get(7)?,
-            r: row.get(8)?,
-            h: row.get(9)?,
-            d: row.get(10)?,
-            t: row.get(11)?,
-            hr: row.get(12)?,
-            rbi: row.get(13)?,
-            rbi2out: row.get(14)?,
-            bb: row.get(15)?,
-            ibb: row.get(16)?,
-            so: row.get(17)?,
-            gidp: row.get(18)?,
-            hbp: row.get(19)?,
-            sh: row.get(20)?,
-            sf: row.get(21)?,
-            sb: row.get(22)?,
-            cs: row.get(23)?,
-            avg: map_sql_real_to_f32(row.get_ref(24)?),
-            obp: map_sql_real_to_f32(row.get_ref(25)?),
-            slg: map_sql_real_to_f32(row.get_ref(26)?),
-            woba: map_sql_real_to_f32(row.get_ref(27)?),
-            babip: map_sql_real_to_f32(row.get_ref(28)?),
-            pos: row.get(29)?,
-        })
-    }
-}
-
-
 impl PlayerGamelog for BattingGamelog {
     fn player_id(&self) -> &str { &self.player_id }
 
@@ -339,6 +227,128 @@ impl CelEval for BattingGamelog {
 }
 
 
+impl Sql for BattingGamelog {
+    fn create_table(tx: &mut Transaction) -> Result<(), Box<dyn Error>> {
+        tx.execute("DROP TABLE IF EXISTS batting_gamelogs", ())?;
+        tx.execute(include_str!("sql/create_batting_gamelogs.sql"), ())?;
+        Ok(())
+    }
+
+    fn table_name<'a>() -> &'a str { "batting_gamelogs" }
+
+    /// Read one row from the database to create the full struct.
+    fn read_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            player_id: row.get(0)?,
+            game_id: row.get(1)?,
+            team_id: row.get(2)?,
+            career_game: row.get(3)?,
+            season_game: row.get(4)?,
+            team_game: row.get(5)?,
+            pa: row.get(6)?,
+            ab: row.get(7)?,
+            r: row.get(8)?,
+            h: row.get(9)?,
+            d: row.get(10)?,
+            t: row.get(11)?,
+            hr: row.get(12)?,
+            rbi: row.get(13)?,
+            rbi2out: row.get(14)?,
+            bb: row.get(15)?,
+            ibb: row.get(16)?,
+            so: row.get(17)?,
+            gidp: row.get(18)?,
+            hbp: row.get(19)?,
+            sh: row.get(20)?,
+            sf: row.get(21)?,
+            sb: row.get(22)?,
+            cs: row.get(23)?,
+            avg: map_sql_real_to_f32(row.get_ref(24)?),
+            obp: map_sql_real_to_f32(row.get_ref(25)?),
+            slg: map_sql_real_to_f32(row.get_ref(26)?),
+            woba: map_sql_real_to_f32(row.get_ref(27)?),
+            babip: map_sql_real_to_f32(row.get_ref(28)?),
+            pos: row.get(29)?,
+        })
+    }
+
+    /// Write the struct to the database using named parameters.
+    fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+        statement.execute(
+            named_params! {
+                ":player_id": &self.player_id,
+                ":game_id": &self.game_id,
+                ":team_id": &self.team_id,
+                ":career_game": &self.career_game,
+                ":season_game": &self.season_game,
+                ":team_game": &self.team_game,
+                ":pa": &self.pa,
+                ":ab": &self.ab,
+                ":r": &self.r,
+                ":h": &self.h,
+                ":d": &self.d,
+                ":t": &self.t,
+                ":hr": &self.hr,
+                ":rbi": &self.rbi,
+                ":rbi2out": &self.rbi2out,
+                ":bb": &self.bb,
+                ":ibb": &self.ibb,
+                ":so": &self.so,
+                ":gidp": &self.gidp,
+                ":hbp": &self.hbp,
+                ":sh": &self.sh,
+                ":sf": &self.sf,
+                ":sb": &self.sb,
+                ":cs": &self.cs,
+                // "avg" is an invalid column name so it's named "bavg" in the SQL.
+                ":bavg": &self.avg,
+                ":obp": &self.obp,
+                ":slg": &self.slg,
+                ":woba": &self.woba,
+                ":babip": &self.babip,
+                ":pos": &self.pos,
+            }
+        )
+    }
+
+    // This could maybe come from a #[derive].
+    fn column_names<'a>() -> Vec<&'a str> {
+        vec![
+            "player_id",
+            "game_id",
+            "team_id",
+            "career_game",
+            "season_game",
+            "team_game",
+            "pa",
+            "ab",
+            "r",
+            "h",
+            "d",
+            "t",
+            "hr",
+            "rbi",
+            "rbi2out",
+            "bb",
+            "ibb",
+            "so",
+            "gidp",
+            "hbp",
+            "sh",
+            "sf",
+            "sb",
+            "cs",
+            "bavg",
+            "obp",
+            "slg",
+            "woba",
+            "babip",
+            "pos",
+        ]
+    }
+}
+
+
 impl From<gamelogs::BattingGamelog> for BattingGamelog {
     fn from(gamelog: gamelogs::BattingGamelog) -> Self {
         // BABIP covers only this game.
@@ -386,9 +396,48 @@ impl From<gamelogs::BattingGamelog> for BattingGamelog {
 }
 
 
-impl FieldingGamelog {
+impl PlayerGamelog for FieldingGamelog {
+    fn player_id(&self) -> &str { &self.player_id }
+
+    fn game_id(&self) -> &str { &self.game_id }
+
+    fn team_id(&self) -> &str { &self.team_id }
+
+    fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+}
+
+
+impl Sql for FieldingGamelog {
+    fn create_table(tx: &mut Transaction) -> Result<(), Box<dyn Error>> {
+        tx.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
+        tx.execute(include_str!("sql/create_fielding_gamelogs.sql"), ())?;
+        Ok(())
+    }
+
+    fn table_name<'a>() -> &'a str { "fielding_gamelogs" }
+
+    fn read_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            player_id: row.get(0)?,
+            game_id: row.get(1)?,
+            team_id: row.get(2)?,
+            career_game: row.get(3)?,
+            season_game: row.get(4)?,
+            team_game: row.get(5)?,
+            pos: row.get(6)?,
+            o: row.get(7)?,
+            po: row.get(8)?,
+            a: row.get(9)?,
+            e: row.get(10)?,
+            dp: row.get(11)?,
+            tp: row.get(12)?,
+            bip: row.get(13)?,
+            bf: row.get(14)?,
+        })
+    }
+
     /// Write the struct to the database using named parameters.
-    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+    fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
         statement.execute(
             named_params! {
                 ":player_id": &self.player_id,
@@ -409,17 +458,26 @@ impl FieldingGamelog {
             }
         )
     }
-}
 
-
-impl PlayerGamelog for FieldingGamelog {
-    fn player_id(&self) -> &str { &self.player_id }
-
-    fn game_id(&self) -> &str { &self.game_id }
-
-    fn team_id(&self) -> &str { &self.team_id }
-
-    fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+    fn column_names<'a>() -> Vec<&'a str> {
+        vec![
+            "player_id",
+            "game_id",
+            "team_id",
+            "career_game",
+            "season_game",
+            "team_game",
+            "pos",
+            "o",
+            "po",
+            "a",
+            "e",
+            "dp",
+            "tp",
+            "bip",
+            "bf",
+        ]
+    }
 }
 
 
@@ -446,9 +504,63 @@ impl From<gamelogs::FieldingGamelog> for FieldingGamelog {
 }
 
 
-impl PitchingGamelog {
+impl PlayerGamelog for PitchingGamelog {
+    fn player_id(&self) -> &str { &self.player_id }
+
+    fn game_id(&self) -> &str { &self.game_id }
+
+    fn team_id(&self) -> &str { &self.team_id }
+
+    fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+}
+
+
+impl Sql for PitchingGamelog {
+    fn create_table(tx: &mut Transaction) -> Result<(), Box<dyn Error>> {
+        tx.execute("DROP TABLE IF EXISTS pitching_gamelogs", ())?;
+        tx.execute(include_str!("sql/create_pitching_gamelogs.sql"), ())?;
+        Ok(())
+    }
+
+    fn table_name<'a>() -> &'a str { "pitching_gamelogs" }
+
+    fn read_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            player_id: row.get(0)?,
+            game_id: row.get(1)?,
+            team_id: row.get(2)?,
+            career_game: row.get(3)?,
+            season_game: row.get(4)?,
+            team_game: row.get(5)?,
+            gs: row.get(6)?,
+            cg: row.get(7)?,
+            sho: row.get(8)?,
+            gf: row.get(9)?,
+            ipouts: row.get(10)?,
+            ab: row.get(11)?,
+            bf: row.get(12)?,
+            h: row.get(13)?,
+            r: row.get(14)?,
+            er: row.get(15)?,
+            hr: row.get(16)?,
+            bb: row.get(17)?,
+            ibb: row.get(18)?,
+            so: row.get(19)?,
+            wp: row.get(20)?,
+            bk: row.get(21)?,
+            hbp: row.get(22)?,
+            gb: row.get(23)?,
+            fb: row.get(24)?,
+            p: row.get(25)?,
+            s: row.get(26)?,
+            decision: row.get(27)?,
+            era: map_sql_real_to_f32(row.get_ref(28)?),
+            fip: map_sql_real_to_f32(row.get_ref(29)?),
+        })
+    }
+
     /// Write the struct to the database using named parameters.
-    pub fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
+    fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error> {
         statement.execute(
             named_params! {
                 ":player_id": &self.player_id,
@@ -484,17 +596,41 @@ impl PitchingGamelog {
             }
         )
     }
-}
 
-
-impl PlayerGamelog for PitchingGamelog {
-    fn player_id(&self) -> &str { &self.player_id }
-
-    fn game_id(&self) -> &str { &self.game_id }
-
-    fn team_id(&self) -> &str { &self.team_id }
-
-    fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+    fn column_names<'a>() -> Vec<&'a str> {
+        vec![
+            "player_id",
+            "game_id",
+            "team_id",
+            "career_game",
+            "season_game",
+            "team_game",
+            "gs",
+            "cg",
+            "sho",
+            "gf",
+            "ipouts",
+            "ab",
+            "bf",
+            "h",
+            "r",
+            "er",
+            "hr",
+            "bb",
+            "ibb",
+            "so",
+            "wp",
+            "bk",
+            "hbp",
+            "gb",
+            "fb",
+            "p",
+            "s",
+            "decision",
+            "era",
+            "fip",
+        ]
+    }
 }
 
 
