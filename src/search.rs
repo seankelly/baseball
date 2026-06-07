@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Display;
@@ -91,21 +92,20 @@ impl<'a> CelExec<'a> {
                 let (key, value) = kv;
                 let bool_value: Vec<_> = value.iter().map(|e| {
                     let mut ctx = self.context.new_inner_scope();
-                    let result;
                     let mut count = 0;
-                    if e.add_cel_variables(&mut ctx, &variables).is_err() {
-                        result = false;
+                    let result = if e.add_cel_variables(&mut ctx, &variables).is_err() {
+                        false
                     }
                     else {
-                        result = match program.execute(&ctx) {
+                        match program.execute(&ctx) {
                             Ok(Value::Bool(true)) => true,
                             Ok(_) => false,
                             Err(error) => {
                                 eprintln!("error evaluating streak program: {error}");
                                 false
                             }
-                        };
-                    }
+                        }
+                    };
 
                     if result {
                         count = 1;
@@ -127,12 +127,11 @@ impl<'a> CelExec<'a> {
                         }
                     }
 
-                    let entry = StreakEntry {
+                    StreakEntry {
                         game_id: e.game_id().to_string(),
                         result,
                         count,
-                    };
-                    entry
+                    }
                 }).collect();
                 (key, bool_value)
             }).collect();
@@ -161,17 +160,16 @@ impl<'a> CelExec<'a> {
                     streak_end = Some(&entry.game_id);
                 }
                 else {
-                    if let (Some(start), Some(end)) = (streak_start, streak_end) {
-                        if length >= streak_minimum {
-                            let span = StreakSpan {
-                                key,
-                                start: start.clone(),
-                                end: end.clone(),
-                                length,
-                                count,
-                            };
-                            streaks.push(span);
-                        }
+                    if let (Some(start), Some(end)) = (streak_start, streak_end)
+                        && length >= streak_minimum {
+                        let span = StreakSpan {
+                            key,
+                            start: start.clone(),
+                            end: end.clone(),
+                            length,
+                            count,
+                        };
+                        streaks.push(span);
                     }
                     streak_start = None;
                     streak_end = None;
@@ -181,30 +179,24 @@ impl<'a> CelExec<'a> {
             }
 
             // Check for streaks that end with the final entry of the Vec.
-            if let (Some(start), Some(end)) = (streak_start, streak_end) {
-                if length >= streak_minimum {
-                    let span = StreakSpan {
-                        key,
-                        start: start.clone(),
-                        end: end.clone(),
-                        length,
-                        count,
-                    };
-                    streaks.push(span);
-                }
+            if let (Some(start), Some(end)) = (streak_start, streak_end)
+                && length >= streak_minimum {
+                let span = StreakSpan {
+                    key,
+                    start: start.clone(),
+                    end: end.clone(),
+                    length,
+                    count,
+                };
+                streaks.push(span);
             }
 
             // Sort the spans and check the 100th entry to see if the streak minimum length should
             // increase. If so, prune the list to only spans meeting the new minimum.
-            streaks.sort_unstable_by(|a, b| b.length.cmp(&a.length));
-            let mut prune_streaks = false;
-            if let Some(span) = streaks.get(100) {
-                if span.length > streak_minimum {
-                    prune_streaks = true;
-                    streak_minimum = span.length;
-                }
-            }
-            if prune_streaks {
+            streaks.sort_unstable_by_key(|a| Reverse(a.length));
+            if let Some(span) = streaks.get(100)
+                && span.length > streak_minimum {
+                streak_minimum = span.length;
                 streaks.retain(|span| span.length >= streak_minimum);
             }
         }
