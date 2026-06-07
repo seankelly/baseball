@@ -21,6 +21,7 @@ pub struct CelExec<'a> {
     filter_program: Option<Program>,
     sort_program: Option<Program>,
     condition_program: Option<Program>,
+    count_program: Option<Program>,
 }
 
 
@@ -35,12 +36,14 @@ pub struct StreakSpan<T: Display> {
     pub start: String,
     pub end: String,
     pub length: u32,
+    pub count: u32,
 }
 
 
 pub struct StreakEntry {
     pub game_id: String,
     pub result: bool,
+    pub count: u8,
 }
 
 
@@ -53,6 +56,7 @@ impl<'a> CelExec<'a> {
             filter_program: None,
             sort_program: None,
             condition_program: None,
+            count_program: None,
         }
     }
 
@@ -71,6 +75,11 @@ impl<'a> CelExec<'a> {
         Ok(())
     }
 
+    pub fn set_count(&mut self, source: &str) -> Result<(), Box<dyn Error>> {
+        self.count_program = Some(Program::compile(source)?);
+        Ok(())
+    }
+
     pub fn streak_eval<'data, T, U>(&self, map: &'data HashMap<T, Vec<U>>) -> HashMap<&'data T, Vec<StreakEntry>>
         where T: Eq + Hash + Sync,
               U: Sync + CelEval + player::PlayerGamelog,
@@ -83,6 +92,7 @@ impl<'a> CelExec<'a> {
                 let bool_value: Vec<_> = value.iter().map(|e| {
                     let mut ctx = self.context.new_inner_scope();
                     let result;
+                    let mut count = 0;
                     if e.add_cel_variables(&mut ctx, &variables).is_err() {
                         result = false;
                     }
@@ -91,14 +101,36 @@ impl<'a> CelExec<'a> {
                             Ok(Value::Bool(true)) => true,
                             Ok(_) => false,
                             Err(error) => {
-                                eprintln!("error evaluating: {error}");
+                                eprintln!("error evaluating streak program: {error}");
                                 false
                             }
                         };
                     }
+
+                    if result {
+                        count = 1;
+                        if let Some(ref program) = self.count_program {
+                            let references = program.references();
+                            let variables = references.variables();
+                            let mut count_ctx = self.context.new_inner_scope();
+                            if e.add_cel_variables(&mut count_ctx, &variables).is_ok() {
+                                count = match program.execute(&ctx) {
+                                    Ok(Value::Int(i)) => { i as u8 }
+                                    Ok(Value::UInt(u)) => { u as u8 }
+                                    Ok(_) => 1,
+                                    Err(error) => {
+                                        eprintln!("error evaluating count program: {error}");
+                                        0
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     let entry = StreakEntry {
                         game_id: e.game_id().to_string(),
                         result,
+                        count,
                     };
                     entry
                 }).collect();
@@ -118,9 +150,11 @@ impl<'a> CelExec<'a> {
             let mut streak_start = None;
             let mut streak_end = None;
             let mut length = 0;
+            let mut count = 0;
             for entry in entries {
                 if entry.result {
                     length += 1;
+                    count += entry.count as u32;
                     if streak_start.is_none() {
                         streak_start = Some(&entry.game_id);
                     }
@@ -134,6 +168,7 @@ impl<'a> CelExec<'a> {
                                 start: start.clone(),
                                 end: end.clone(),
                                 length,
+                                count,
                             };
                             streaks.push(span);
                         }
@@ -141,6 +176,7 @@ impl<'a> CelExec<'a> {
                     streak_start = None;
                     streak_end = None;
                     length = 0;
+                    count = 0;
                 }
             }
 
@@ -152,6 +188,7 @@ impl<'a> CelExec<'a> {
                         start: start.clone(),
                         end: end.clone(),
                         length,
+                        count,
                     };
                     streaks.push(span);
                 }

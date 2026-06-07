@@ -1,5 +1,6 @@
-use std::error::Error;
+use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::error::Error;
 use std::path;
 use std::time::Instant;
 
@@ -118,6 +119,9 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, 
 {
     let mut exec = CelExec::new();
     exec.set_condition(&streak_args.condition)?;
+    if let Some(ref program) = streak_args.count {
+        exec.set_count(program)?;
+    }
 
     let sort_start = Instant::now();
     players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
@@ -144,12 +148,13 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, 
 fn find_player_game_log_streaks() {
 }
 
-fn display_streaks<T: std::fmt::Display>(streaks: Vec<StreakSpan<T>>) {
+fn display_streaks<T: std::fmt::Display>(mut streaks: Vec<StreakSpan<T>>) {
+    streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
     println!("Total streaks: {}", streaks.len());
     if streaks.len() > 0 {
-        println!("player ID | game start | game end | streak length");
+        println!("player ID | game start | game end | count | streak length");
         for streak in streaks.iter().take(200) {
-            println!("{} | {} | {} | {}", streak.key, streak.start, streak.end, streak.length);
+            println!("{} | {} | {} | {} | {}", streak.key, streak.start, streak.end, streak.count, streak.length);
         }
     }
 }
