@@ -18,12 +18,6 @@ struct PlayIndexCelArgs {
     limit: Option<usize>,
 
     #[arg(long, value_name = "PROGRAM")]
-    pre_filter: Option<String>,
-
-    #[arg(long, value_name = "PROGRAM")]
-    condition: Option<String>,
-
-    #[arg(long, value_name = "PROGRAM")]
     sort_key: Option<String>,
 
     database: path::PathBuf,
@@ -79,9 +73,6 @@ struct StreakArgs {
 
 #[derive(Clone, Args)]
 struct WindowArgs {
-    #[arg(long, value_name = "PROGRAM")]
-    condition: Option<String>,
-
     #[arg(long, value_name = "PROGRAM")]
     rate: Option<String>,
 
