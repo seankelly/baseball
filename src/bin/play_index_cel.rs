@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use baseball_tools::database::Sql;
 use baseball_tools::player;
-use baseball_tools::search::{CelExec, StreakSpan};
+use baseball_tools::search::{CelEval, CelExec, StreakSpan};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rayon::prelude::*;
@@ -93,25 +93,26 @@ struct WindowArgs {
 }
 
 
-fn load_player_batting(conn: &Connection) -> Result<HashMap<String, Vec<player::BattingGamelog>>, Box<dyn Error>> {
+fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection) -> Result<HashMap<String, Vec<T>>, Box<dyn Error>> {
     let mut select_sql = String::with_capacity(250);
     select_sql.push_str("SELECT ");
-    for (idx, name) in player::BattingGamelog::column_names().iter().enumerate() {
+    for (idx, name) in T::column_names().iter().enumerate() {
         if idx > 0 {
             select_sql.push_str(", ");
         }
         select_sql.push_str(name);
     }
-    select_sql.push_str(" FROM batting_gamelogs");
+    select_sql.push_str(" FROM ");
+    select_sql.push_str(T::table_name());
 
     let load_start = Instant::now();
     let mut players = HashMap::new();
     let mut statement = conn.prepare(&select_sql)?;
-    let player_rows = statement.query_map([], |row| player::BattingGamelog::read_row(&row))?;
+    let player_rows = statement.query_map([], |row| T::read_row(&row))?;
     let mut found_game_logs = 0;
     for gl in player_rows {
         let gl = gl?;
-        let entry = players.entry(gl.player_id.clone()).or_insert_with(|| Vec::new());
+        let entry = players.entry(gl.player_id().to_string()).or_insert_with(|| Vec::new());
         entry.push(gl);
         found_game_logs += 1;
     }
@@ -121,14 +122,14 @@ fn load_player_batting(conn: &Connection) -> Result<HashMap<String, Vec<player::
 }
 
 
-fn player_batting_streak(conn: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>> {
+fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, Vec<T>>) -> Result<(), Box<dyn Error>>
+    where T: Send + Sync + player::PlayerGamelog + CelEval
+{
     let mut exec = CelExec::new();
     exec.set_condition(&streak_args.condition)?;
 
-    let mut players = load_player_batting(conn)?;
-
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game));
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
     let sort_end = Instant::now();
     println!("Sorted all games in {:?}", sort_end.duration_since(sort_start));
 
@@ -170,7 +171,16 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     match (args.table, args.mode) {
         (SearchTable::BattingGameLogs, SearchCommand::Streak(streak_args)) => {
-            player_batting_streak(&connection, &streak_args)?;
+            let batters: HashMap<_, Vec<player::BattingGamelog>> = load_player_games(&connection)?;
+            player_game_streak(&streak_args, batters)?;
+        }
+        (SearchTable::FieldingGameLogs, SearchCommand::Streak(streak_args)) => {
+            let fielders: HashMap<_, Vec<player::FieldingGamelog>> = load_player_games(&connection)?;
+            player_game_streak(&streak_args, fielders)?;
+        }
+        (SearchTable::PitchingGameLogs, SearchCommand::Streak(streak_args)) => {
+            let pitchers: HashMap<_, Vec<player::PitchingGamelog>> = load_player_games(&connection)?;
+            player_game_streak(&streak_args, pitchers)?;
         }
         _ => {
         }

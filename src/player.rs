@@ -17,6 +17,8 @@ pub trait PlayerGamelog {
 
     fn team_id(&self) -> &str;
 
+    fn career_game(&self) -> u16;
+
     fn set_team_game(&mut self, game: u16);
 }
 
@@ -145,6 +147,8 @@ impl PlayerGamelog for BattingGamelog {
     fn game_id(&self) -> &str { &self.game_id }
 
     fn team_id(&self) -> &str { &self.team_id }
+
+    fn career_game(&self) -> u16 { self.career_game }
 
     fn set_team_game(&mut self, game: u16) { self.team_game = game; }
 }
@@ -403,7 +407,56 @@ impl PlayerGamelog for FieldingGamelog {
 
     fn team_id(&self) -> &str { &self.team_id }
 
+    fn career_game(&self) -> u16 { self.career_game }
+
     fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+}
+
+
+impl CelEval for FieldingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>> {
+        for name in variables {
+            match *name {
+                "career_game" => context.add_variable("career_game", self.career_game)?,
+                "season_game" => context.add_variable("season_game", self.season_game)?,
+                "team_game" => context.add_variable("team_game", self.team_game)?,
+                "pos" => context.add_variable("pos", self.pos)?,
+                "o" => context.add_variable("o", self.o)?,
+                "po" => context.add_variable("po", self.po)?,
+                "a" => context.add_variable("a", self.a)?,
+                "e" => context.add_variable("e", self.e)?,
+                "dp" => context.add_variable("dp", self.dp)?,
+                "tp" => context.add_variable("tp", self.tp)?,
+                "bip" => context.add_variable("bip", self.bip)?,
+                "bf" => context.add_variable("bf", self.bf)?,
+                _ => {},
+            }
+        }
+
+        Ok(())
+    }
+
+    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+        for name in variables {
+            match *name {
+                "career_game" => {},
+                "season_game" => {},
+                "team_game" => {},
+                "pos" => {},
+                "o" => {},
+                "po" => {},
+                "a" => {},
+                "e" => {},
+                "dp" => {},
+                "tp" => {},
+                "bip" => {},
+                "bf" => {},
+                _ => return false,
+            }
+        }
+
+        true
+    }
 }
 
 
@@ -511,7 +564,86 @@ impl PlayerGamelog for PitchingGamelog {
 
     fn team_id(&self) -> &str { &self.team_id }
 
+    fn career_game(&self) -> u16 { self.career_game }
+
     fn set_team_game(&mut self, game: u16) { self.team_game = game; }
+}
+
+
+impl CelEval for PitchingGamelog {
+    fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>> {
+        for name in variables {
+            match *name {
+                "career_game" => context.add_variable("career_game", self.career_game)?,
+                "season_game" => context.add_variable("season_game", self.season_game)?,
+                "team_game" => context.add_variable("team_game", self.team_game)?,
+                "gs" => context.add_variable("gs", self.gs)?,
+                "cg" => context.add_variable("cg", self.cg)?,
+                "sho" => context.add_variable("sho", self.sho)?,
+                "gf" => context.add_variable("gf", self.gf)?,
+                "ipouts" => context.add_variable("ipouts", self.ipouts)?,
+                "ab" => context.add_variable("ab", self.ab)?,
+                "bf" => context.add_variable("bf", self.bf)?,
+                "h" => context.add_variable("h", self.h)?,
+                "r" => context.add_variable("r", self.r)?,
+                "er" => context.add_variable("er", self.er)?,
+                "hr" => context.add_variable("hr", self.hr)?,
+                "bb" => context.add_variable("bb", self.bb)?,
+                "ibb" => context.add_variable("ibb", self.ibb)?,
+                "so" => context.add_variable("so", self.so)?,
+                "wp" => context.add_variable("wp", self.wp)?,
+                "bk" => context.add_variable("bk", self.bk)?,
+                "hbp" => context.add_variable("hbp", self.hbp)?,
+                "gb" => context.add_variable("gb", self.gb)?,
+                "fb" => context.add_variable("fb", self.fb)?,
+                "p" => context.add_variable("p", self.p)?,
+                "s" => context.add_variable("s", self.s)?,
+                "decision" => context.add_variable("decision", self.decision.clone())?,
+                "era" => context.add_variable("era", self.era)?,
+                "fip" => context.add_variable("fip", self.fip)?,
+                _ => {},
+            }
+        }
+
+        Ok(())
+    }
+
+    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+        for name in variables {
+            match *name {
+                "career_game" => {},
+                "season_game" => {},
+                "team_game" => {},
+                "gs" => {},
+                "cg" => {},
+                "sho" => {},
+                "gf" => {},
+                "ipouts" => {},
+                "ab" => {},
+                "bf" => {},
+                "h" => {},
+                "r" => {},
+                "er" => {},
+                "hr" => {},
+                "bb" => {},
+                "ibb" => {},
+                "so" => {},
+                "wp" => {},
+                "bk" => {},
+                "hbp" => {},
+                "gb" => {},
+                "fb" => {},
+                "p" => {},
+                "s" => {},
+                "decision" => {},
+                "era" => {},
+                "fip" => {},
+                _ => return false,
+            }
+        }
+
+        true
+    }
 }
 
 
