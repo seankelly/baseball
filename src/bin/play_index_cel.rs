@@ -11,6 +11,8 @@ use baseball_tools::search::{CelEval, CelExec, StreakSpan};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rayon::prelude::*;
 use rusqlite::{Connection, OpenFlags};
+use tracing::debug;
+use tracing_subscriber;
 
 
 #[derive(Parser)]
@@ -109,7 +111,7 @@ fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection) -> Resul
         found_game_logs += 1;
     }
     let load_end = Instant::now();
-    println!("Loaded {} players ({} games) in {:?}", players.len(), found_game_logs, load_end.duration_since(load_start));
+    debug!(player_seasons = players.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded player games");
     Ok(players)
 }
 
@@ -126,19 +128,17 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, 
     let sort_start = Instant::now();
     players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
     let sort_end = Instant::now();
-    println!("Sorted all games in {:?}", sort_end.duration_since(sort_start));
+    debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
-    println!("Running program");
     let eval_start = Instant::now();
     let player_streaks = exec.streak_eval(&players);
     let eval_end = Instant::now();
-    println!("Evaluated in {:?}", eval_end.duration_since(eval_start));
+    debug!(duration = format!("{:?}", eval_end.duration_since(eval_start)), "Evaluated games for streaks");
 
-    println!("Checking results");
     let check_start = Instant::now();
     let streaks = CelExec::find_streaks(&player_streaks);
     let check_end = Instant::now();
-    println!("Checked in {:?}", check_end.duration_since(check_start));
+    debug!(duration = format!("{:?}", check_end.duration_since(check_start)), "Found streaks");
 
     display_streaks(streaks);
 
@@ -186,5 +186,6 @@ fn run() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    tracing_subscriber::fmt::init();
     run()
 }

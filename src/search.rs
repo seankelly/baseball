@@ -8,6 +8,7 @@ use crate::player;
 
 use cel::{Context, Program, Value};
 use rayon::prelude::*;
+use tracing::trace;
 
 
 pub trait CelEval {
@@ -197,6 +198,7 @@ impl<'a> CelExec<'a> {
             if let Some(span) = streaks.get(100)
                 && span.length > streak_minimum {
                 streak_minimum = span.length;
+                trace!(streak_minimum = streak_minimum, streaks = streaks.len(), "Increasing streak minimum");
                 streaks.retain(|span| span.length >= streak_minimum);
             }
         }
