@@ -155,9 +155,9 @@ fn find_player_game_log_streaks() {
 
 fn display_streaks<T: std::fmt::Display>(streaks: Vec<StreakSpan<T>>) {
     println!("Total streaks: {}", streaks.len());
-    if streaks.len() < 200 {
+    if streaks.len() > 0 {
         println!("player ID | game start | game end | streak length");
-        for streak in &streaks {
+        for streak in streaks.iter().take(200) {
             println!("{} | {} | {} | {}", streak.key, streak.start, streak.end, streak.length);
         }
     }
