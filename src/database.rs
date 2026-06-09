@@ -7,7 +7,7 @@ pub trait Sql where Self: Sized {
 
     fn table_name<'a>() -> &'a str;
 
-    fn read_row(row: &Row) -> Result<Self, rusqlite::Error>;
+    fn read_row(row: &Row, offset: usize) -> Result<Self, rusqlite::Error>;
 
     fn write_row(&self, statement: &mut Statement) -> Result<usize, rusqlite::Error>;
 

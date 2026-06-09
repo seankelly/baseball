@@ -1,7 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::Display;
 use std::hash::Hash;
 
 use crate::player;
@@ -33,8 +32,15 @@ pub enum SortOrder {
 }
 
 
-pub struct StreakSpan<T: Display> {
-    pub key: T,
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct Key {
+    pub id: String,
+    pub year: i32,
+}
+
+
+pub struct StreakSpan {
+    pub id: String,
     pub start: String,
     pub end: String,
     pub length: u32,
@@ -143,7 +149,7 @@ impl<'a> CelExec<'a> {
         }
     }
 
-    pub fn find_streaks<T: Display>(streak_map: &HashMap<T, Vec<StreakEntry>>) -> Vec<StreakSpan<&T>> {
+    pub fn find_streaks(streak_map: &HashMap<&Key, Vec<StreakEntry>>) -> Vec<StreakSpan> {
         let mut streaks = Vec::with_capacity(150);
         let mut streak_minimum = 2;
         for (key, entries) in streak_map.iter() {
@@ -164,7 +170,7 @@ impl<'a> CelExec<'a> {
                     if let (Some(start), Some(end)) = (streak_start, streak_end)
                         && length >= streak_minimum {
                         let span = StreakSpan {
-                            key,
+                            id: key.id.to_owned(),
                             start: start.clone(),
                             end: end.clone(),
                             length,
@@ -183,7 +189,7 @@ impl<'a> CelExec<'a> {
             if let (Some(start), Some(end)) = (streak_start, streak_end)
                 && length >= streak_minimum {
                 let span = StreakSpan {
-                    key,
+                    id: key.id.to_owned(),
                     start: start.clone(),
                     end: end.clone(),
                     length,

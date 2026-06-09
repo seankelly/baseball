@@ -6,9 +6,10 @@ use std::time::Instant;
 
 use baseball_tools::database::Sql;
 use baseball_tools::player;
-use baseball_tools::search::{CelEval, CelExec, StreakSpan};
+use baseball_tools::search::{CelEval, CelExec, Key, StreakSpan};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use chrono::Datelike;
 use rayon::prelude::*;
 use rusqlite::{Connection, OpenFlags};
 use tracing::debug;
@@ -87,26 +88,33 @@ struct WindowArgs {
 }
 
 
-fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection) -> Result<HashMap<String, Vec<T>>, Box<dyn Error>> {
-    let mut select_sql = String::with_capacity(250);
-    select_sql.push_str("SELECT ");
+fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection) -> Result<HashMap<Key, Vec<T>>, Box<dyn Error>> {
+    let mut select_sql = String::with_capacity(300);
+    let table_name = T::table_name();
+    select_sql.push_str("SELECT games.date, ");
     for (idx, name) in T::column_names().iter().enumerate() {
         if idx > 0 {
             select_sql.push_str(", ");
         }
+        select_sql.push_str("gl.");
         select_sql.push_str(name);
     }
     select_sql.push_str(" FROM ");
-    select_sql.push_str(T::table_name());
+    select_sql.push_str(table_name);
+    select_sql.push_str(" gl JOIN games ON gl.game_id = games.game_id");
+    debug!(sql = select_sql, length = select_sql.len(), "SQL to select player game logs");
 
     let load_start = Instant::now();
     let mut players = HashMap::new();
     let mut statement = conn.prepare(&select_sql)?;
-    let player_rows = statement.query_map([], |row| T::read_row(&row))?;
+    let player_rows = statement.query_map([], |row| Ok((row.get(0), T::read_row(&row, 1))))?;
     let mut found_game_logs = 0;
-    for gl in player_rows {
+    for rows in player_rows {
+        let (date, gl) = rows?;
         let gl = gl?;
-        let entry = players.entry(gl.player_id().to_string()).or_insert_with(|| Vec::new());
+        let date: chrono::NaiveDate = date?;
+        let key = Key { id: gl.player_id().to_string(), year: date.year() };
+        let entry = players.entry(key).or_insert_with(|| Vec::new());
         entry.push(gl);
         found_game_logs += 1;
     }
@@ -116,7 +124,7 @@ fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection) -> Resul
 }
 
 
-fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, Vec<T>>) -> Result<(), Box<dyn Error>>
+fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + player::PlayerGamelog + CelEval
 {
     let mut exec = CelExec::new();
@@ -145,16 +153,22 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<String, 
     Ok(())
 }
 
+
+fn batting_game_window(window_args: &WindowArgs, mut players: HashMap<Key, Vec<player::BattingGamelog>>) -> Result<(), Box<dyn Error>>
+{
+    Ok(())
+}
+
 fn find_player_game_log_streaks() {
 }
 
-fn display_streaks<T: std::fmt::Display>(mut streaks: Vec<StreakSpan<T>>) {
+fn display_streaks(mut streaks: Vec<StreakSpan>) {
     streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
     println!("Total streaks: {}", streaks.len());
     if streaks.len() > 0 {
         println!("player ID | game start | game end | count | streak length");
         for streak in streaks.iter().take(200) {
-            println!("{} | {} | {} | {} | {}", streak.key, streak.start, streak.end, streak.count, streak.length);
+            println!("{} | {} | {} | {} | {}", streak.id, streak.start, streak.end, streak.count, streak.length);
         }
     }
 }
