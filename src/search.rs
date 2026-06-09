@@ -40,10 +40,16 @@ pub struct Key {
 
 
 pub struct StreakSpan {
+    /// The player or team ID for this streak.
     pub id: String,
+    /// The first game in the streak.
     pub start: String,
+    /// The final game in the streak.
     pub end: String,
+    /// The length of the streak in games.
     pub length: u32,
+    /// The length of the streak in either games or another countable statistic (e.g. plate
+    /// appearances).
     pub count: u32,
 }
 
@@ -121,7 +127,7 @@ impl<'a> CelExec<'a> {
                             let variables = references.variables();
                             let mut count_ctx = self.context.new_inner_scope();
                             if e.add_cel_variables(&mut count_ctx, &variables).is_ok() {
-                                count = match program.execute(&ctx) {
+                                count = match program.execute(&count_ctx) {
                                     Ok(Value::Int(i)) => { i as u8 }
                                     Ok(Value::UInt(u)) => { u as u8 }
                                     Ok(_) => 1,
@@ -168,7 +174,7 @@ impl<'a> CelExec<'a> {
                 }
                 else {
                     if let (Some(start), Some(end)) = (streak_start, streak_end)
-                        && length >= streak_minimum {
+                        && count >= streak_minimum {
                         let span = StreakSpan {
                             id: key.id.to_owned(),
                             start: start.clone(),
@@ -187,7 +193,7 @@ impl<'a> CelExec<'a> {
 
             // Check for streaks that end with the final entry of the Vec.
             if let (Some(start), Some(end)) = (streak_start, streak_end)
-                && length >= streak_minimum {
+                && count >= streak_minimum {
                 let span = StreakSpan {
                     id: key.id.to_owned(),
                     start: start.clone(),
@@ -200,12 +206,12 @@ impl<'a> CelExec<'a> {
 
             // Sort the spans and check the 100th entry to see if the streak minimum length should
             // increase. If so, prune the list to only spans meeting the new minimum.
-            streaks.sort_unstable_by_key(|a| Reverse(a.length));
+            streaks.sort_unstable_by_key(|a| Reverse(a.count));
             if let Some(span) = streaks.get(100)
-                && span.length > streak_minimum {
-                streak_minimum = span.length;
+                && span.count > streak_minimum {
+                streak_minimum = span.count;
                 trace!(streak_minimum = streak_minimum, streaks = streaks.len(), "Increasing streak minimum");
-                streaks.retain(|span| span.length >= streak_minimum);
+                streaks.retain(|span| span.count >= streak_minimum);
             }
         }
 
