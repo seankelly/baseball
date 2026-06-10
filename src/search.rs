@@ -108,7 +108,8 @@ impl<'a> CelExec<'a> {
             let variables = references.variables();
             let player_streaks: HashMap<_, _> = map.par_iter().map(|kv| {
                 let (key, value) = kv;
-                let entries: Vec<_> = value.iter().map(|e| self.streak_eval_each(e, program, &variables)).collect();
+                let entries = Self::eval_slice(value, &self.context, program, &variables)
+                    .iter().map(|i| self.streak_eval_each(i)).collect();
                 (key, entries)
             }).collect();
             player_streaks
@@ -118,33 +119,24 @@ impl<'a> CelExec<'a> {
         }
     }
 
-    fn streak_eval_each<T>(&self, element: &T, program: &Program, variables: &[&str]) -> StreakEntry
+    fn streak_eval_each<T>(&self, item: &(&T, Value)) -> StreakEntry
         where T: CelEval + player::PlayerGamelog,
     {
-        let mut ctx = self.context.new_inner_scope();
-        let mut count = 0;
-        let result = if element.add_cel_variables(&mut ctx, variables).is_err() {
-            false
-        }
-        else {
-            match program.execute(&ctx) {
-                Ok(Value::Bool(true)) => true,
-                Ok(_) => false,
-                Err(error) => {
-                    eprintln!("error evaluating streak program: {error}");
-                    false
-                }
-            }
+        let (element, value) = item;
+        let result = match value {
+            Value::Bool(true) => true,
+            _ => false,
         };
+        let mut count = 0;
 
         if result {
             count = 1;
             if let Some(ref program) = self.count_program {
                 let references = program.references();
                 let variables = references.variables();
-                let mut count_ctx = self.context.new_inner_scope();
-                if element.add_cel_variables(&mut count_ctx, &variables).is_ok() {
-                    count = match program.execute(&count_ctx) {
+                let mut ctx = self.context.new_inner_scope();
+                if element.add_cel_variables(&mut ctx, &variables).is_ok() {
+                    count = match program.execute(&ctx) {
                         Ok(Value::Int(i)) => { i as u8 }
                         Ok(Value::UInt(u)) => { u as u8 }
                         Ok(_) => 1,
@@ -225,6 +217,24 @@ impl<'a> CelExec<'a> {
         }
 
         streaks
+    }
+
+    /// Run CEL program on every item on the provided slice, returning a Vec of tuples containing
+    /// the item and result of the CEL program.
+    fn eval_slice<'data, T: CelEval>(items: &'data [T], context: &Context, program: &Program, variables: &[&str]) -> Vec<(&'data T, Value)> {
+        items.iter().map(|item| {
+            let mut ctx = context.new_inner_scope();
+            let result = if item.add_cel_variables(&mut ctx, &variables).is_err() {
+                Value::Null
+            }
+            else {
+                match program.execute(&ctx) {
+                    Ok(v) => v,
+                    Err(_) => Value::Null,
+                }
+            };
+            (item, result)
+        }).collect()
     }
 
     pub fn filter<T: CelEval>(&self, input: &mut Vec<T>) {
