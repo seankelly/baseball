@@ -115,7 +115,7 @@ fn results<T: serde::Serialize>(games: &[T], limit: Option<usize>) -> Result<Str
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args = GamelogArgs::parse();
-    let mut search = CelExec::new();
+    let mut search = CelExec::default();
     if let Some(program) = args.filter.as_deref() {
         search.set_filter(program)?;
     }

@@ -191,7 +191,7 @@ fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection, args: &Q
 fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + player::PlayerGamelog + CelEval
 {
-    let mut exec = CelExec::new();
+    let mut exec = CelExec::default();
     exec.set_condition(&streak_args.condition)?;
     if let Some(ref program) = streak_args.count {
         exec.set_count(program)?;

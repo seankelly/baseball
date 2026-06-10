@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::default::Default;
 use std::error::Error;
 use std::hash::Hash;
 
@@ -10,6 +11,8 @@ use rayon::prelude::*;
 use tracing::trace;
 
 
+const DEFAULT_RESULT_LIMIT: usize = 100;
+
 pub trait CelEval {
     fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>>;
 
@@ -19,6 +22,7 @@ pub trait CelEval {
 
 pub struct CelExec<'a> {
     context: Context<'a>,
+    result_limit: usize,
     filter_program: Option<Program>,
     sort_program: Option<Program>,
     condition_program: Option<Program>,
@@ -62,11 +66,12 @@ pub struct StreakEntry {
 
 
 impl<'a> CelExec<'a> {
-    pub fn new() -> Self {
+    pub fn new(limit: usize) -> Self {
         let context = Context::default();
 
         Self {
             context,
+            result_limit: limit,
             filter_program: None,
             sort_program: None,
             condition_program: None,
@@ -211,7 +216,7 @@ impl<'a> CelExec<'a> {
             // Sort the spans and check the 100th entry to see if the streak minimum length should
             // increase. If so, prune the list to only spans meeting the new minimum.
             streaks.sort_unstable_by_key(|a| Reverse(a.count));
-            if let Some(span) = streaks.get(100)
+            if let Some(span) = streaks.get(DEFAULT_RESULT_LIMIT)
                 && span.count > streak_minimum {
                 streak_minimum = span.count;
                 trace!(streak_minimum = streak_minimum, streaks = streaks.len(), "Increasing streak minimum");
@@ -272,6 +277,21 @@ impl<'a> CelExec<'a> {
             Ok(Value::UInt(u)) => { u as f64 }
             Ok(Value::Float(f)) => { f }
             _ => f64::INFINITY
+        }
+    }
+}
+
+impl<'a> Default for CelExec<'a> {
+    fn default() -> Self {
+        let context = Context::default();
+
+        Self {
+            context,
+            result_limit: DEFAULT_RESULT_LIMIT,
+            filter_program: None,
+            sort_program: None,
+            condition_program: None,
+            count_program: None,
         }
     }
 }
