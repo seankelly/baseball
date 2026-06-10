@@ -65,6 +65,14 @@ pub struct StreakEntry {
 }
 
 
+pub struct WindowEntry {
+    pub id: String,
+    pub start: String,
+    pub end: String,
+    pub count: u32,
+}
+
+
 impl<'a> CelExec<'a> {
     pub fn new(limit: usize) -> Self {
         let context = Context::default();
@@ -217,6 +225,82 @@ impl<'a> CelExec<'a> {
         }
 
         streaks
+    }
+
+    pub fn window_eval<'data, T, U>(&self, map: &'data HashMap<T, Vec<U>>, size: usize) -> HashMap<&'data T, Vec<WindowEntry>>
+        where T: Eq + Hash + Sync,
+              U: Sync + CelEval + player::PlayerGamelog,
+    {
+        if let Some(ref program) = self.count_program {
+            let player_windows: HashMap<_, _> = map.par_iter().map(|kv| {
+                let (key, value) = kv;
+                let references = program.references();
+                let variables = references.variables();
+                // Run the program (the slowest part) on every element in the Vec.
+                let processed_values = Self::eval_slice(value, &self.context, program, &variables);
+                // The windows method will skip any processing if the input Vec is shorter than the
+                // chosen size. I don't want to skip those windows so check the size and manually
+                // run the inner method on the whole thing if too short.
+                let entries: Vec<_> = if processed_values.len() >= size {
+                    processed_values.windows(size).map(|w| self.window_eval_each(w)).collect()
+                }
+                else {
+                    vec![self.window_eval_each(&processed_values)]
+                };
+                (key, entries)
+            }).collect();
+            player_windows
+        }
+        else {
+            HashMap::new()
+        }
+    }
+
+    /// Evaluate every item within the window to produce a count from the program.
+    fn window_eval_each<T>(&self, window: &[(&T, Value)]) -> WindowEntry
+        where T: player::PlayerGamelog,
+    {
+        let mut count = 0;
+        let start = window.first();
+        let end = window.last();
+        for (_item, value) in window {
+            let item_count = match value {
+                Value::Int(i) => { *i as u32 }
+                Value::UInt(u) => { *u as u32 }
+                _ => 0,
+            };
+            count += item_count;
+        }
+
+        WindowEntry {
+            id: start.map_or("id", |e| e.0.player_id()).to_owned(),
+            start: start.map_or("unknown", |e| e.0.game_id()).to_owned(),
+            end: end.map_or("unknown", |e| e.0.game_id()).to_owned(),
+            count,
+        }
+    }
+
+    pub fn sort_windows<'data, T>(&self, window_map: &'data HashMap<&T, Vec<WindowEntry>>) -> Vec<&'data WindowEntry> {
+        let mut windows = Vec::with_capacity(150);
+        let mut minimum_count = 1;
+        for entries in window_map.values() {
+            for window in entries.iter() {
+                if window.count >= minimum_count {
+                    windows.push(window);
+                }
+            }
+
+            // Sort the seen windows so far and check the result limit entry to see if the minimum
+            // count should increase. If so, prune the list to the new minimum.
+            windows.sort_unstable_by_key(|w| Reverse(w.count));
+            if let Some(window) = windows.get(self.result_limit) && window.count > minimum_count {
+                minimum_count = window.count;
+                trace!(minimum_count = minimum_count, windows = windows.len(), "Increase window minimum count");
+                windows.retain(|window| window.count >= minimum_count);
+            }
+        }
+
+        windows
     }
 
     /// Run CEL program on every item on the provided slice, returning a Vec of tuples containing

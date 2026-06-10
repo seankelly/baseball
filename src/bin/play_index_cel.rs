@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use baseball_tools::database::Sql;
 use baseball_tools::player;
-use baseball_tools::search::{CelEval, CelExec, Key, StreakSpan};
+use baseball_tools::search::{CelEval, CelExec, Key, StreakSpan, WindowEntry};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use chrono::Datelike;
@@ -86,6 +86,15 @@ struct StreakArgs {
 
 #[derive(Clone, Args)]
 struct WindowArgs {
+    #[arg(short = 'c', long)]
+    career: bool,
+
+    #[arg(short = 's', long, value_name = "YEAR")]
+    year_start: Option<i32>,
+
+    #[arg(short = 'e', long, value_name = "YEAR")]
+    year_end: Option<i32>,
+
     #[arg(long, value_name = "PROGRAM")]
     rate: Option<String>,
 
@@ -94,6 +103,12 @@ struct WindowArgs {
 
     #[arg(long)]
     anchor_end: Option<String>,
+
+    #[arg()]
+    size: u8,
+
+    #[arg()]
+    count: String,
 }
 
 
@@ -105,6 +120,14 @@ struct QueryArgs {
 
 impl QueryArgs {
     fn from_streak(args: &StreakArgs) -> Self {
+        Self {
+            career: args.career,
+            year_start: args.year_start,
+            year_end: args.year_end,
+        }
+    }
+
+    fn from_window(args: &WindowArgs) -> Self {
         Self {
             career: args.career,
             year_start: args.year_start,
@@ -220,8 +243,40 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
 
 fn batting_game_window(window_args: &WindowArgs, mut players: HashMap<Key, Vec<player::BattingGamelog>>) -> Result<(), Box<dyn Error>>
 {
+    let mut exec = CelExec::default();
+    exec.set_count(&window_args.count)?;
+
+    let sort_start = Instant::now();
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game));
+    let sort_end = Instant::now();
+    debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
+
+    let eval_start = Instant::now();
+    let player_windows = exec.window_eval(&players, window_args.size as usize);
+    let eval_end = Instant::now();
+    debug!(size = window_args.size, duration = format!("{:?}", eval_end.duration_since(eval_start)), "Evaluated game windows");
+
+    let check_start = Instant::now();
+    let windows = exec.sort_windows(&player_windows);
+    let check_end = Instant::now();
+    debug!(duration = format!("{:?}", check_end.duration_since(check_start)), "Sorted windows");
+
+    display_windows(windows);
+
     Ok(())
 }
+
+
+fn display_windows(windows: Vec<&WindowEntry>) {
+    println!("Total windows: {}", windows.len());
+    if !windows.is_empty() {
+        println!("player ID | game start | game end | count");
+        for window in windows.iter().take(200) {
+            println!("{} | {} | {} | {}", window.id, window.start, window.end, window.count);
+        }
+    }
+}
+
 
 fn find_player_game_log_streaks() {
 }
@@ -258,6 +313,11 @@ fn run() -> Result<(), Box<dyn Error>> {
             let query_args = QueryArgs::from_streak(&streak_args);
             let pitchers: HashMap<_, Vec<player::PitchingGamelog>> = load_player_games(&connection, &query_args)?;
             player_game_streak(&streak_args, pitchers)?;
+        }
+        (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
+            let query_args = QueryArgs::from_window(&window_args);
+            let batters: HashMap<_, Vec<player::BattingGamelog>> = load_player_games(&connection, &query_args)?;
+            batting_game_window(&window_args, batters)?;
         }
         _ => {
         }
