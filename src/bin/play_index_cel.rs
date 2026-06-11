@@ -241,13 +241,14 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
 }
 
 
-fn batting_game_window(window_args: &WindowArgs, mut players: HashMap<Key, Vec<player::BattingGamelog>>) -> Result<(), Box<dyn Error>>
+fn player_game_window<T>(window_args: &WindowArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
+    where T: Send + Sync + player::PlayerGamelog + CelEval
 {
     let mut exec = CelExec::default();
     exec.set_count(&window_args.count)?;
 
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game));
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
@@ -317,7 +318,17 @@ fn run() -> Result<(), Box<dyn Error>> {
         (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
             let query_args = QueryArgs::from_window(&window_args);
             let batters: HashMap<_, Vec<player::BattingGamelog>> = load_player_games(&connection, &query_args)?;
-            batting_game_window(&window_args, batters)?;
+            player_game_window(&window_args, batters)?;
+        }
+        (SearchTable::FieldingGameLogs, SearchCommand::Window(window_args)) => {
+            let query_args = QueryArgs::from_window(&window_args);
+            let fielders: HashMap<_, Vec<player::FieldingGamelog>> = load_player_games(&connection, &query_args)?;
+            player_game_window(&window_args, fielders)?;
+        }
+        (SearchTable::PitchingGameLogs, SearchCommand::Window(window_args)) => {
+            let query_args = QueryArgs::from_window(&window_args);
+            let pitchers: HashMap<_, Vec<player::PitchingGamelog>> = load_player_games(&connection, &query_args)?;
+            player_game_window(&window_args, pitchers)?;
         }
         _ => {
         }
