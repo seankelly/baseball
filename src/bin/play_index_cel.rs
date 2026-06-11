@@ -13,7 +13,6 @@ use chrono::Datelike;
 use rayon::prelude::*;
 use rusqlite::{Connection, OpenFlags};
 use tracing::debug;
-use tracing_subscriber;
 
 
 #[derive(Parser)]

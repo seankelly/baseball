@@ -131,10 +131,7 @@ impl<'a> CelExec<'a> {
         where T: CelEval + player::PlayerGamelog,
     {
         let (element, value) = item;
-        let result = match value {
-            Value::Bool(true) => true,
-            _ => false,
-        };
+        let result = matches!(value, Value::Bool(true));
         let mut count = 0;
 
         if result {
@@ -308,7 +305,7 @@ impl<'a> CelExec<'a> {
     fn eval_slice<'data, T: CelEval>(items: &'data [T], context: &Context, program: &Program, variables: &[&str]) -> Vec<(&'data T, Value)> {
         items.iter().map(|item| {
             let mut ctx = context.new_inner_scope();
-            let result = if item.add_cel_variables(&mut ctx, &variables).is_err() {
+            let result = if item.add_cel_variables(&mut ctx, variables).is_err() {
                 Value::Null
             }
             else {
