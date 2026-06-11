@@ -240,6 +240,18 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
 }
 
 
+fn display_streaks(mut streaks: Vec<StreakSpan>) {
+    streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
+    println!("Total streaks: {}", streaks.len());
+    if !streaks.is_empty() {
+        println!("player ID | game start | game end | count | streak length");
+        for streak in streaks.iter().take(200) {
+            println!("{} | {} | {} | {} | {}", streak.id, streak.start, streak.end, streak.count, streak.length);
+        }
+    }
+}
+
+
 fn player_game_window<T>(window_args: &WindowArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + SearchKey + CelEval
 {
@@ -278,18 +290,13 @@ fn display_windows(windows: Vec<&WindowEntry>) {
 }
 
 
-fn find_player_game_log_streaks() {
-}
-
-fn display_streaks(mut streaks: Vec<StreakSpan>) {
-    streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
-    println!("Total streaks: {}", streaks.len());
-    if !streaks.is_empty() {
-        println!("player ID | game start | game end | count | streak length");
-        for streak in streaks.iter().take(200) {
-            println!("{} | {} | {} | {} | {}", streak.id, streak.start, streak.end, streak.count, streak.length);
-        }
-    }
+fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
+    where T: Send + Sync + CelEval + SearchKey + Sql
+{
+    let query_args = QueryArgs::from_streak(&streak_args);
+    let batters: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
+    player_game_streak(streak_args, batters)?;
+    Ok(())
 }
 
 
@@ -300,19 +307,13 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     match (args.table, args.mode) {
         (SearchTable::BattingGameLogs, SearchCommand::Streak(streak_args)) => {
-            let query_args = QueryArgs::from_streak(&streak_args);
-            let batters: HashMap<_, Vec<player::BattingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_streak(&streak_args, batters)?;
+            find_player_game_log_streaks::<player::BattingGamelog>(&connection, &streak_args)?;
         }
         (SearchTable::FieldingGameLogs, SearchCommand::Streak(streak_args)) => {
-            let query_args = QueryArgs::from_streak(&streak_args);
-            let fielders: HashMap<_, Vec<player::FieldingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_streak(&streak_args, fielders)?;
+            find_player_game_log_streaks::<player::FieldingGamelog>(&connection, &streak_args)?;
         }
         (SearchTable::PitchingGameLogs, SearchCommand::Streak(streak_args)) => {
-            let query_args = QueryArgs::from_streak(&streak_args);
-            let pitchers: HashMap<_, Vec<player::PitchingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_streak(&streak_args, pitchers)?;
+            find_player_game_log_streaks::<player::PitchingGamelog>(&connection, &streak_args)?;
         }
         (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
             let query_args = QueryArgs::from_window(&window_args);
