@@ -3,7 +3,7 @@ use std::error::Error;
 use baseball::chadwick::gamelogs;
 
 use crate::database::Sql;
-use crate::search::CelEval;
+use crate::search::{CelEval, SearchKey};
 
 use cel::Context;
 use rusqlite::{Row, Statement, Transaction, named_params};
@@ -228,6 +228,15 @@ impl CelEval for BattingGamelog {
 
         true
     }
+}
+
+
+impl SearchKey for BattingGamelog {
+    fn id(&self) -> &str { &self.game_id }
+
+    fn subject_id(&self) -> &str { &self.player_id }
+
+    fn order(&self) -> u32 { self.career_game.into() }
 }
 
 
@@ -460,6 +469,15 @@ impl CelEval for FieldingGamelog {
 }
 
 
+impl SearchKey for FieldingGamelog {
+    fn id(&self) -> &str { &self.game_id }
+
+    fn subject_id(&self) -> &str { &self.player_id }
+
+    fn order(&self) -> u32 { self.career_game.into() }
+}
+
+
 impl Sql for FieldingGamelog {
     fn create_table(tx: &mut Transaction) -> Result<(), Box<dyn Error>> {
         tx.execute("DROP TABLE IF EXISTS fielding_gamelogs", ())?;
@@ -644,6 +662,15 @@ impl CelEval for PitchingGamelog {
 
         true
     }
+}
+
+
+impl SearchKey for PitchingGamelog {
+    fn id(&self) -> &str { &self.game_id }
+
+    fn subject_id(&self) -> &str { &self.player_id }
+
+    fn order(&self) -> u32 { self.career_game.into() }
 }
 
 

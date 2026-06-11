@@ -4,8 +4,6 @@ use std::default::Default;
 use std::error::Error;
 use std::hash::Hash;
 
-use crate::player;
-
 use cel::{Context, Program, Value};
 use rayon::prelude::*;
 use tracing::trace;
@@ -19,6 +17,14 @@ pub trait CelEval {
     fn check_cel_variables(&self, variables: &[&str]) -> bool;
 }
 
+
+pub trait SearchKey {
+    fn id(&self) -> &str;
+
+    fn subject_id(&self) -> &str;
+
+    fn order(&self) -> u32;
+}
 
 pub struct CelExec<'a> {
     context: Context<'a>,
@@ -109,7 +115,7 @@ impl<'a> CelExec<'a> {
 
     pub fn streak_eval<'data, T, U>(&self, map: &'data HashMap<T, Vec<U>>) -> HashMap<&'data T, Vec<StreakEntry>>
         where T: Eq + Hash + Sync,
-              U: Sync + CelEval + player::PlayerGamelog,
+              U: Sync + CelEval + SearchKey,
     {
         if let Some(ref program) = self.condition_program {
             let references = program.references();
@@ -128,7 +134,7 @@ impl<'a> CelExec<'a> {
     }
 
     fn streak_eval_each<T>(&self, item: &(&T, Value)) -> StreakEntry
-        where T: CelEval + player::PlayerGamelog,
+        where T: CelEval + SearchKey,
     {
         let (element, value) = item;
         let result = matches!(value, Value::Bool(true));
@@ -155,7 +161,7 @@ impl<'a> CelExec<'a> {
         }
 
         StreakEntry {
-            game_id: element.game_id().to_string(),
+            game_id: element.id().to_string(),
             result,
             count,
         }
@@ -226,7 +232,7 @@ impl<'a> CelExec<'a> {
 
     pub fn window_eval<'data, T, U>(&self, map: &'data HashMap<T, Vec<U>>, size: usize) -> HashMap<&'data T, Vec<WindowEntry>>
         where T: Eq + Hash + Sync,
-              U: Sync + CelEval + player::PlayerGamelog,
+              U: Sync + CelEval + SearchKey,
     {
         if let Some(ref program) = self.count_program {
             let player_windows: HashMap<_, _> = map.par_iter().map(|kv| {
@@ -255,7 +261,7 @@ impl<'a> CelExec<'a> {
 
     /// Evaluate every item within the window to produce a count from the program.
     fn window_eval_each<T>(&self, window: &[(&T, Value)]) -> WindowEntry
-        where T: player::PlayerGamelog,
+        where T: SearchKey,
     {
         let mut count = 0;
         let start = window.first();
@@ -270,9 +276,9 @@ impl<'a> CelExec<'a> {
         }
 
         WindowEntry {
-            id: start.map_or("id", |e| e.0.player_id()).to_owned(),
-            start: start.map_or("unknown", |e| e.0.game_id()).to_owned(),
-            end: end.map_or("unknown", |e| e.0.game_id()).to_owned(),
+            id: start.map_or("id", |e| e.0.subject_id()).to_owned(),
+            start: start.map_or("unknown", |e| e.0.id()).to_owned(),
+            end: end.map_or("unknown", |e| e.0.id()).to_owned(),
             count,
         }
     }

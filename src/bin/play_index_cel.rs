@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use baseball_tools::database::Sql;
 use baseball_tools::player;
-use baseball_tools::search::{CelEval, CelExec, Key, StreakSpan, WindowEntry};
+use baseball_tools::search::{CelEval, CelExec, Key, SearchKey, StreakSpan, WindowEntry};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use chrono::Datelike;
@@ -182,7 +182,7 @@ impl QueryArgs {
 }
 
 
-fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<T>>, Box<dyn Error>> {
+fn load_player_games<T: SearchKey + Sql>(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<T>>, Box<dyn Error>> {
     let (select_sql, params) = args.build_game_log_query::<T>();
     let load_start = Instant::now();
     let mut players = HashMap::new();
@@ -193,12 +193,12 @@ fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection, args: &Q
         let gl;
         let key = if args.career {
             gl = T::read_row(row, 0)?;
-            Key { id: gl.player_id().to_string(), year: 0 }
+            Key { id: gl.subject_id().to_string(), year: 0 }
         }
         else {
             let date: chrono::NaiveDate = row.get(0)?;
             gl = T::read_row(row, 1)?;
-            Key { id: gl.player_id().to_string(), year: date.year() }
+            Key { id: gl.subject_id().to_string(), year: date.year() }
         };
         let entry = players.entry(key).or_insert_with(|| Vec::new());
         entry.push(gl);
@@ -211,7 +211,7 @@ fn load_player_games<T: player::PlayerGamelog + Sql>(conn: &Connection, args: &Q
 
 
 fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
-    where T: Send + Sync + player::PlayerGamelog + CelEval
+    where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
     exec.set_condition(&streak_args.condition)?;
@@ -220,7 +220,7 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
     }
 
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
@@ -241,13 +241,13 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
 
 
 fn player_game_window<T>(window_args: &WindowArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
-    where T: Send + Sync + player::PlayerGamelog + CelEval
+    where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
     exec.set_count(&window_args.count)?;
 
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.career_game()));
+    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
