@@ -187,7 +187,7 @@ impl QueryArgs {
             select_sql.push_str(" strftime('%Y', games.date) <= :end");
             params.push((":end", year.to_string()));
         }
-        debug!(sql = select_sql, career = self.career, year_start = self.year_start, year_end = self.year_end, length = select_sql.len(), "SQL to select player game logs");
+        debug!(sql = select_sql, career = self.career, year_start = self.year_start, year_end = self.year_end, length = select_sql.len(), "SQL to select game logs");
         (select_sql, params)
     }
 }
@@ -221,7 +221,7 @@ fn load_player_games<T: SearchKey + Sql>(conn: &Connection, args: &QueryArgs) ->
 }
 
 
-fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
+fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
@@ -231,17 +231,17 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
     }
 
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
+    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
     let eval_start = Instant::now();
-    let player_streaks = exec.streak_eval(&players);
+    let streak_map = exec.streak_eval(&games);
     let eval_end = Instant::now();
     debug!(duration = format!("{:?}", eval_end.duration_since(eval_start)), "Evaluated games for streaks");
 
     let check_start = Instant::now();
-    let streaks = CelExec::find_streaks(&player_streaks);
+    let streaks = CelExec::find_streaks(&streak_map);
     let check_end = Instant::now();
     debug!(duration = format!("{:?}", check_end.duration_since(check_start)), "Found streaks");
 
@@ -274,7 +274,7 @@ fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, V
         found_game_logs += 1;
     }
     let load_end = Instant::now();
-    debug!(team_seasons = team_seasons.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded player games");
+    debug!(team_seasons = team_seasons.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded team games");
     Ok(team_seasons)
 }
 
@@ -283,7 +283,7 @@ fn display_streaks(mut streaks: Vec<StreakSpan>) {
     streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
     println!("Total streaks: {}", streaks.len());
     if !streaks.is_empty() {
-        println!("player ID | game start | game end | count | streak length");
+        println!("subject ID | game start | game end | count | streak length");
         for streak in streaks.iter().take(200) {
             println!("{} | {} | {} | {} | {}", streak.id, streak.start, streak.end, streak.count, streak.length);
         }
@@ -334,7 +334,7 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
 {
     let query_args = QueryArgs::from_streak(&streak_args);
     let batters: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
-    player_game_streak(streak_args, batters)?;
+    find_game_streaks(streak_args, batters)?;
     Ok(())
 }
 
@@ -343,7 +343,7 @@ fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> 
 {
     let query_args = QueryArgs::from_streak(&streak_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLog>> = load_team_games(connection, &query_args)?;
-    player_game_streak(streak_args, team_seasons)?;
+    find_game_streaks(streak_args, team_seasons)?;
     Ok(())
 }
 
