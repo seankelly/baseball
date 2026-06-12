@@ -1,9 +1,13 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use baseball::retrosheet::game;
 
+use crate::search::{CelEval, SearchKey};
 use crate::database::Sql;
 
+use cel::{Context, Value};
+use chrono::Datelike;
 use rusqlite::{Row, Statement, Transaction, named_params};
 use rusqlite::types::{FromSql, FromSqlResult, Null, ToSql, ToSqlOutput, ValueRef};
 
@@ -26,9 +30,9 @@ pub struct Linescore {
 pub struct GameLog {
     /// This game ID used on many sites.
     pub game_id: String,
+    // 1
     pub date: chrono::NaiveDate,
     // These fields are copied straight from GameLog with some movement.
-    // 1
     pub number_of_game: String,
     pub day_of_week: String,
     pub visitor_team: String,
@@ -205,6 +209,205 @@ pub struct GameLog {
     // 160
     pub additional_info: String,
     pub acquisition_info: String,
+}
+
+
+#[derive(Clone, Debug)]
+pub struct TeamGameLog {
+    // This game ID used on many sites.
+    pub game_id: String,
+    // Other synthetic fields to simplify common queries.
+    pub w: bool,
+    pub l: bool,
+    pub t: bool,
+    // 1
+    pub date: chrono::NaiveDate,
+    // These fields are copied straight from GameLog with some movement.
+    pub number_of_game: String,
+    pub day_of_week: String,
+    pub team: String,
+    pub league: String,
+    pub team_game_number: u16,
+    pub opponent_team: String,
+    pub opponent_league: String,
+    pub opponent_team_game_number: u16,
+    // 10
+    pub score: u8,
+    pub opponent_score: u8,
+    pub number_of_outs: Option<u8>,
+    pub day_night: String,
+    pub completion_info: String,
+    pub forfeit_info: String,
+    pub protest_info: String,
+    pub park_id: String,
+    pub attendance: Option<i32>,
+    pub time_of_game: Option<u16>,
+    // 20
+    pub line_score: Linescore,
+    pub opponent_line_score: Linescore,
+    pub ab: Option<u8>,
+    pub hits: Option<u8>,
+    pub doubles: RetrosheetOption,
+    pub triples: RetrosheetOption,
+    pub homeruns: RetrosheetOption,
+    pub rbi: RetrosheetOption,
+    pub sac_hits: Option<u8>,
+    pub sac_flies: RetrosheetOption,
+    // 30
+    pub hbp: RetrosheetOption,
+    pub walks: RetrosheetOption,
+    pub intentional_walks: RetrosheetOption,
+    pub strikeouts: RetrosheetOption,
+    pub stolen_bases: RetrosheetOption,
+    pub caught_stealing: RetrosheetOption,
+    pub gidp: RetrosheetOption,
+    pub catcher_interference: RetrosheetOption,
+    pub left_on_base: RetrosheetOption,
+    pub pitchers_used: Option<u8>,
+    // 40
+    pub individual_earned_runs: RetrosheetOption,
+    pub team_earned_runs: Option<u8>,
+    pub wild_pitches: RetrosheetOption,
+    pub balks: Option<u8>,
+    pub putouts: RetrosheetOption,
+    pub assists: RetrosheetOption,
+    pub errors: RetrosheetOption,
+    pub passed_balls: RetrosheetOption,
+    pub double_plays: RetrosheetOption,
+    pub triple_plays: Option<u8>,
+    // 50
+    pub opponent_ab: Option<u8>,
+    pub opponent_hits: Option<u8>,
+    pub opponent_doubles: RetrosheetOption,
+    pub opponent_triples: RetrosheetOption,
+    pub opponent_homeruns: RetrosheetOption,
+    pub opponent_rbi: RetrosheetOption,
+    pub opponent_sac_hits: Option<u8>,
+    pub opponent_sac_flies: RetrosheetOption,
+    pub opponent_hbp: RetrosheetOption,
+    pub opponent_walks: RetrosheetOption,
+    // 60
+    pub opponent_intentional_walks: RetrosheetOption,
+    pub opponent_strikeouts: RetrosheetOption,
+    pub opponent_stolen_bases: RetrosheetOption,
+    pub opponent_caught_stealing: RetrosheetOption,
+    pub opponent_gidp: RetrosheetOption,
+    pub opponent_catcher_interference: RetrosheetOption,
+    pub opponent_left_on_base: RetrosheetOption,
+    pub opponent_pitchers_used: Option<u8>,
+    pub opponent_individual_earned_runs: RetrosheetOption,
+    pub opponent_team_earned_runs: Option<u8>,
+    // 70
+    pub opponent_wild_pitches: RetrosheetOption,
+    pub opponent_balks: Option<u8>,
+    pub opponent_putouts: RetrosheetOption,
+    pub opponent_assists: RetrosheetOption,
+    pub opponent_errors: RetrosheetOption,
+    pub opponent_passed_balls: RetrosheetOption,
+    pub opponent_double_plays: RetrosheetOption,
+    pub opponent_triple_plays: Option<u8>,
+    pub home_plate_umpire_name: String,
+    pub home_plate_umpire_id: String,
+    // 80
+    pub first_base_umpire_name: String,
+    pub first_base_umpire_id: String,
+    pub second_base_umpire_name: String,
+    pub second_base_umpire_id: String,
+    pub third_base_umpire_name: String,
+    pub third_base_umpire_id: String,
+    pub left_field_umpire_name: String,
+    pub left_field_umpire_id: String,
+    pub right_field_umpire_name: String,
+    pub right_field_umpire_id: String,
+    // 90
+    pub manager_id: String,
+    pub manager_name: String,
+    pub opponent_manager_id: String,
+    pub opponent_manager_name: String,
+    pub winning_pitcher_name: String,
+    pub winning_pitcher_id: String,
+    pub losing_pitcher_name: String,
+    pub losing_pitcher_id: String,
+    pub saving_pitcher_name: String,
+    pub saving_pitcher_id: String,
+    // 100
+    pub gwrbi_player_name: String,
+    pub gwrbi_player_id: String,
+    pub starter_name: String,
+    pub starter_id: String,
+    pub opponent_starter_name: String,
+    pub opponent_starter_id: String,
+    pub lineup_1_id: String,
+    pub lineup_1_name: String,
+    pub lineup_1_pos: String,
+    pub lineup_2_id: String,
+    // 110
+    pub lineup_2_name: String,
+    pub lineup_2_pos: String,
+    pub lineup_3_id: String,
+    pub lineup_3_name: String,
+    pub lineup_3_pos: String,
+    pub lineup_4_id: String,
+    pub lineup_4_name: String,
+    pub lineup_4_pos: String,
+    pub lineup_5_id: String,
+    pub lineup_5_name: String,
+    // 120
+    pub lineup_5_pos: String,
+    pub lineup_6_id: String,
+    pub lineup_6_name: String,
+    pub lineup_6_pos: String,
+    pub lineup_7_id: String,
+    pub lineup_7_name: String,
+    pub lineup_7_pos: String,
+    pub lineup_8_id: String,
+    pub lineup_8_name: String,
+    pub lineup_8_pos: String,
+    // 130
+    pub lineup_9_id: String,
+    pub lineup_9_name: String,
+    pub lineup_9_pos: String,
+    pub opponent_1_id: String,
+    pub opponent_1_name: String,
+    pub opponent_1_pos: String,
+    pub opponent_2_id: String,
+    pub opponent_2_name: String,
+    pub opponent_2_pos: String,
+    pub opponent_3_id: String,
+    // 140
+    pub opponent_3_name: String,
+    pub opponent_3_pos: String,
+    pub opponent_4_id: String,
+    pub opponent_4_name: String,
+    pub opponent_4_pos: String,
+    pub opponent_5_id: String,
+    pub opponent_5_name: String,
+    pub opponent_5_pos: String,
+    pub opponent_6_id: String,
+    pub opponent_6_name: String,
+    // 150
+    pub opponent_6_pos: String,
+    pub opponent_7_id: String,
+    pub opponent_7_name: String,
+    pub opponent_7_pos: String,
+    pub opponent_8_id: String,
+    pub opponent_8_name: String,
+    pub opponent_8_pos: String,
+    pub opponent_9_id: String,
+    pub opponent_9_name: String,
+    pub opponent_9_pos: String,
+    // 160
+    pub additional_info: String,
+    pub acquisition_info: String,
+}
+
+
+impl GameLog {
+    /// Split the game log entry into separate home and visitor team game logs.
+    pub fn each_team_game(&self) -> (TeamGameLog, TeamGameLog) {
+        (TeamGameLog::from_home_team(self),
+         TeamGameLog::from_visitor_team(self))
+    }
 }
 
 
@@ -906,6 +1109,17 @@ impl From<Option<i8>> for RetrosheetOption {
 }
 
 
+impl From<RetrosheetOption> for Value {
+    fn from(retro_option: RetrosheetOption) -> Value {
+        match retro_option {
+            RetrosheetOption::None => Value::Null,
+            RetrosheetOption::Unknown => Value::Int(-1),
+            RetrosheetOption::Some(i) => Value::Int(i.into()),
+        }
+    }
+}
+
+
 impl FromSql for RetrosheetOption {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
         let result = match value {
@@ -1014,6 +1228,7 @@ impl Linescore {
             .unwrap_or(String::from(""))
     }
 
+    /// Convert a comma-delimited representation into itself.
     fn from_sql_linescore(sql_text: &str) -> Self {
         let mut linescore = Vec::new();
         for inning in sql_text.split(',') {
@@ -1029,6 +1244,8 @@ impl Linescore {
             linescore
         }
     }
+
+    fn as_vec(&self) -> &Vec<Option<u8>> { &self.linescore }
 }
 
 
@@ -1055,6 +1272,749 @@ impl ToSql for Linescore {
         let value = self.sql_linescore();
         Ok(ToSqlOutput::from(value))
     }
+}
+
+
+impl TeamGameLog {
+    fn from_home_team(game: &GameLog) -> TeamGameLog {
+        TeamGameLog {
+            game_id: game.game_id.clone(),
+            w: game.home_score > game.visitor_score,
+            l: game.home_score < game.visitor_score,
+            t: game.home_score == game.visitor_score,
+            // 1
+            date: game.date,
+            number_of_game: game.number_of_game.clone(),
+            day_of_week: game.day_of_week.clone(),
+            team: game.home_team.clone(),
+            league: game.home_league.clone(),
+            team_game_number: game.home_team_game_number,
+            opponent_team: game.visitor_team.clone(),
+            opponent_league: game.visitor_league.clone(),
+            opponent_team_game_number: game.visitor_team_game_number,
+            // 10
+            score: game.home_score,
+            opponent_score: game.visitor_score,
+            number_of_outs: game.number_of_outs,
+            day_night: game.day_night.clone(),
+            completion_info: game.completion_info.clone(),
+            forfeit_info: game.forfeit_info.clone(),
+            protest_info: game.protest_info.clone(),
+            park_id: game.park_id.clone(),
+            attendance: game.attendance,
+            time_of_game: game.time_of_game,
+            // 20
+            line_score: game.home_line_score.clone(),
+            opponent_line_score: game.visitor_line_score.clone(),
+            ab: game.home_ab,
+            hits: game.home_hits,
+            doubles: game.home_doubles.clone(),
+            triples: game.home_triples.clone(),
+            homeruns: game.home_homeruns.clone(),
+            rbi: game.home_rbi.clone(),
+            sac_hits: game.home_sac_hits,
+            sac_flies: game.home_sac_flies.clone(),
+            // 30
+            hbp: game.home_hbp.clone(),
+            walks: game.home_walks.clone(),
+            intentional_walks: game.home_intentional_walks.clone(),
+            strikeouts: game.home_strikeouts.clone(),
+            stolen_bases: game.home_stolen_bases.clone(),
+            caught_stealing: game.home_caught_stealing.clone(),
+            gidp: game.home_gidp.clone(),
+            catcher_interference: game.home_catcher_interference.clone(),
+            left_on_base: game.home_left_on_base.clone(),
+            pitchers_used: game.home_pitchers_used,
+            // 40
+            individual_earned_runs: game.home_individual_earned_runs.clone(),
+            team_earned_runs: game.home_team_earned_runs,
+            wild_pitches: game.home_wild_pitches.clone(),
+            balks: game.home_balks,
+            putouts: game.home_putouts.clone(),
+            assists: game.home_assists.clone(),
+            errors: game.home_errors.clone(),
+            passed_balls: game.home_passed_balls.clone(),
+            double_plays: game.home_double_plays.clone(),
+            triple_plays: game.home_triple_plays,
+            // 50
+            opponent_ab: game.visitor_ab,
+            opponent_hits: game.visitor_hits,
+            opponent_doubles: game.visitor_doubles.clone(),
+            opponent_triples: game.visitor_triples.clone(),
+            opponent_homeruns: game.visitor_homeruns.clone(),
+            opponent_rbi: game.visitor_rbi.clone(),
+            opponent_sac_hits: game.visitor_sac_hits,
+            opponent_sac_flies: game.visitor_sac_flies.clone(),
+            opponent_hbp: game.visitor_hbp.clone(),
+            opponent_walks: game.visitor_walks.clone(),
+            // 60
+            opponent_intentional_walks: game.visitor_intentional_walks.clone(),
+            opponent_strikeouts: game.visitor_strikeouts.clone(),
+            opponent_stolen_bases: game.visitor_stolen_bases.clone(),
+            opponent_caught_stealing: game.visitor_caught_stealing.clone(),
+            opponent_gidp: game.visitor_gidp.clone(),
+            opponent_catcher_interference: game.visitor_catcher_interference.clone(),
+            opponent_left_on_base: game.visitor_left_on_base.clone(),
+            opponent_pitchers_used: game.visitor_pitchers_used,
+            opponent_individual_earned_runs: game.visitor_individual_earned_runs.clone(),
+            opponent_team_earned_runs: game.visitor_team_earned_runs,
+            // 70
+            opponent_wild_pitches: game.visitor_wild_pitches.clone(),
+            opponent_balks: game.visitor_balks,
+            opponent_putouts: game.visitor_putouts.clone(),
+            opponent_assists: game.visitor_assists.clone(),
+            opponent_errors: game.visitor_errors.clone(),
+            opponent_passed_balls: game.visitor_passed_balls.clone(),
+            opponent_double_plays: game.visitor_double_plays.clone(),
+            opponent_triple_plays: game.visitor_triple_plays,
+            home_plate_umpire_name: game.home_plate_umpire_name.clone(),
+            home_plate_umpire_id: game.home_plate_umpire_id.clone(),
+            // 80
+            first_base_umpire_name: game.first_base_umpire_name.clone(),
+            first_base_umpire_id: game.first_base_umpire_id.clone(),
+            second_base_umpire_name: game.second_base_umpire_name.clone(),
+            second_base_umpire_id: game.second_base_umpire_id.clone(),
+            third_base_umpire_name: game.third_base_umpire_name.clone(),
+            third_base_umpire_id: game.third_base_umpire_id.clone(),
+            left_field_umpire_name: game.left_field_umpire_name.clone(),
+            left_field_umpire_id: game.left_field_umpire_id.clone(),
+            right_field_umpire_name: game.right_field_umpire_name.clone(),
+            right_field_umpire_id: game.right_field_umpire_id.clone(),
+            // 90
+            manager_name: game.home_manager_name.clone(),
+            manager_id: game.home_manager_id.clone(),
+            opponent_manager_name: game.visitor_manager_name.clone(),
+            opponent_manager_id: game.visitor_manager_id.clone(),
+            winning_pitcher_name: game.winning_pitcher_name.clone(),
+            winning_pitcher_id: game.winning_pitcher_id.clone(),
+            losing_pitcher_name: game.losing_pitcher_name.clone(),
+            losing_pitcher_id: game.losing_pitcher_id.clone(),
+            saving_pitcher_name: game.saving_pitcher_name.clone(),
+            saving_pitcher_id: game.saving_pitcher_id.clone(),
+            // 100
+            gwrbi_player_name: game.gwrbi_player_name.clone(),
+            gwrbi_player_id: game.gwrbi_player_id.clone(),
+            starter_name: game.home_starter_name.clone(),
+            starter_id: game.home_starter_id.clone(),
+            opponent_starter_name: game.visitor_starter_name.clone(),
+            opponent_starter_id: game.visitor_starter_id.clone(),
+            lineup_1_id: game.home_1_id.clone(),
+            lineup_1_name: game.home_1_name.clone(),
+            lineup_1_pos: game.home_1_pos.clone(),
+            lineup_2_id: game.home_2_id.clone(),
+            // 110
+            lineup_2_name: game.home_2_name.clone(),
+            lineup_2_pos: game.home_2_pos.clone(),
+            lineup_3_id: game.home_3_id.clone(),
+            lineup_3_name: game.home_3_name.clone(),
+            lineup_3_pos: game.home_3_pos.clone(),
+            lineup_4_id: game.home_4_id.clone(),
+            lineup_4_name: game.home_4_name.clone(),
+            lineup_4_pos: game.home_4_pos.clone(),
+            lineup_5_id: game.home_5_id.clone(),
+            lineup_5_name: game.home_5_name.clone(),
+            // 120
+            lineup_5_pos: game.home_5_pos.clone(),
+            lineup_6_id: game.home_6_id.clone(),
+            lineup_6_name: game.home_6_name.clone(),
+            lineup_6_pos: game.home_6_pos.clone(),
+            lineup_7_id: game.home_7_id.clone(),
+            lineup_7_name: game.home_7_name.clone(),
+            lineup_7_pos: game.home_7_pos.clone(),
+            lineup_8_id: game.home_8_id.clone(),
+            lineup_8_name: game.home_8_name.clone(),
+            lineup_8_pos: game.home_8_pos.clone(),
+            // 130
+            lineup_9_id: game.home_9_id.clone(),
+            lineup_9_name: game.home_9_name.clone(),
+            lineup_9_pos: game.home_9_pos.clone(),
+            opponent_1_id: game.visitor_1_id.clone(),
+            opponent_1_name: game.visitor_1_name.clone(),
+            opponent_1_pos: game.visitor_1_pos.clone(),
+            opponent_2_id: game.visitor_2_id.clone(),
+            opponent_2_name: game.visitor_2_name.clone(),
+            opponent_2_pos: game.visitor_2_pos.clone(),
+            opponent_3_id: game.visitor_3_id.clone(),
+            // 140
+            opponent_3_name: game.visitor_3_name.clone(),
+            opponent_3_pos: game.visitor_3_pos.clone(),
+            opponent_4_id: game.visitor_4_id.clone(),
+            opponent_4_name: game.visitor_4_name.clone(),
+            opponent_4_pos: game.visitor_4_pos.clone(),
+            opponent_5_id: game.visitor_5_id.clone(),
+            opponent_5_name: game.visitor_5_name.clone(),
+            opponent_5_pos: game.visitor_5_pos.clone(),
+            opponent_6_id: game.visitor_6_id.clone(),
+            opponent_6_name: game.visitor_6_name.clone(),
+            // 150
+            opponent_6_pos: game.visitor_6_pos.clone(),
+            opponent_7_id: game.visitor_7_id.clone(),
+            opponent_7_name: game.visitor_7_name.clone(),
+            opponent_7_pos: game.visitor_7_pos.clone(),
+            opponent_8_id: game.visitor_8_id.clone(),
+            opponent_8_name: game.visitor_8_name.clone(),
+            opponent_8_pos: game.visitor_8_pos.clone(),
+            opponent_9_id: game.visitor_9_id.clone(),
+            opponent_9_name: game.visitor_9_name.clone(),
+            opponent_9_pos: game.visitor_9_pos.clone(),
+            // 160
+            additional_info: game.additional_info.clone(),
+            acquisition_info: game.acquisition_info.clone(),
+        }
+    }
+
+    fn from_visitor_team(game: &GameLog) -> TeamGameLog {
+        TeamGameLog {
+            game_id: game.game_id.clone(),
+            w: game.visitor_score > game.home_score,
+            l: game.visitor_score < game.home_score,
+            t: game.visitor_score == game.home_score,
+            // 1
+            date: game.date,
+            number_of_game: game.number_of_game.clone(),
+            day_of_week: game.day_of_week.clone(),
+            team: game.visitor_team.clone(),
+            league: game.visitor_league.clone(),
+            team_game_number: game.visitor_team_game_number,
+            opponent_team: game.home_team.clone(),
+            opponent_league: game.home_league.clone(),
+            opponent_team_game_number: game.home_team_game_number,
+            // 10
+            score: game.visitor_score,
+            opponent_score: game.home_score,
+            number_of_outs: game.number_of_outs,
+            day_night: game.day_night.clone(),
+            completion_info: game.completion_info.clone(),
+            forfeit_info: game.forfeit_info.clone(),
+            protest_info: game.protest_info.clone(),
+            park_id: game.park_id.clone(),
+            attendance: game.attendance,
+            time_of_game: game.time_of_game,
+            // 20
+            line_score: game.visitor_line_score.clone(),
+            opponent_line_score: game.home_line_score.clone(),
+            ab: game.visitor_ab,
+            hits: game.visitor_hits,
+            doubles: game.visitor_doubles.clone(),
+            triples: game.visitor_triples.clone(),
+            homeruns: game.visitor_homeruns.clone(),
+            rbi: game.visitor_rbi.clone(),
+            sac_hits: game.visitor_sac_hits,
+            sac_flies: game.visitor_sac_flies.clone(),
+            // 30
+            hbp: game.visitor_hbp.clone(),
+            walks: game.visitor_walks.clone(),
+            intentional_walks: game.visitor_intentional_walks.clone(),
+            strikeouts: game.visitor_strikeouts.clone(),
+            stolen_bases: game.visitor_stolen_bases.clone(),
+            caught_stealing: game.visitor_caught_stealing.clone(),
+            gidp: game.visitor_gidp.clone(),
+            catcher_interference: game.visitor_catcher_interference.clone(),
+            left_on_base: game.visitor_left_on_base.clone(),
+            pitchers_used: game.visitor_pitchers_used,
+            // 40
+            individual_earned_runs: game.visitor_individual_earned_runs.clone(),
+            team_earned_runs: game.visitor_team_earned_runs,
+            wild_pitches: game.visitor_wild_pitches.clone(),
+            balks: game.visitor_balks,
+            putouts: game.visitor_putouts.clone(),
+            assists: game.visitor_assists.clone(),
+            errors: game.visitor_errors.clone(),
+            passed_balls: game.visitor_passed_balls.clone(),
+            double_plays: game.visitor_double_plays.clone(),
+            triple_plays: game.visitor_triple_plays,
+            // 50
+            opponent_ab: game.home_ab,
+            opponent_hits: game.home_hits,
+            opponent_doubles: game.home_doubles.clone(),
+            opponent_triples: game.home_triples.clone(),
+            opponent_homeruns: game.home_homeruns.clone(),
+            opponent_rbi: game.home_rbi.clone(),
+            opponent_sac_hits: game.home_sac_hits,
+            opponent_sac_flies: game.home_sac_flies.clone(),
+            opponent_hbp: game.home_hbp.clone(),
+            opponent_walks: game.home_walks.clone(),
+            // 60
+            opponent_intentional_walks: game.home_intentional_walks.clone(),
+            opponent_strikeouts: game.home_strikeouts.clone(),
+            opponent_stolen_bases: game.home_stolen_bases.clone(),
+            opponent_caught_stealing: game.home_caught_stealing.clone(),
+            opponent_gidp: game.home_gidp.clone(),
+            opponent_catcher_interference: game.home_catcher_interference.clone(),
+            opponent_left_on_base: game.home_left_on_base.clone(),
+            opponent_pitchers_used: game.home_pitchers_used,
+            opponent_individual_earned_runs: game.home_individual_earned_runs.clone(),
+            opponent_team_earned_runs: game.home_team_earned_runs,
+            // 70
+            opponent_wild_pitches: game.home_wild_pitches.clone(),
+            opponent_balks: game.home_balks,
+            opponent_putouts: game.home_putouts.clone(),
+            opponent_assists: game.home_assists.clone(),
+            opponent_errors: game.home_errors.clone(),
+            opponent_passed_balls: game.home_passed_balls.clone(),
+            opponent_double_plays: game.home_double_plays.clone(),
+            opponent_triple_plays: game.home_triple_plays,
+            home_plate_umpire_name: game.home_plate_umpire_name.clone(),
+            home_plate_umpire_id: game.home_plate_umpire_id.clone(),
+            // 80
+            first_base_umpire_name: game.first_base_umpire_name.clone(),
+            first_base_umpire_id: game.first_base_umpire_id.clone(),
+            second_base_umpire_name: game.second_base_umpire_name.clone(),
+            second_base_umpire_id: game.second_base_umpire_id.clone(),
+            third_base_umpire_name: game.third_base_umpire_name.clone(),
+            third_base_umpire_id: game.third_base_umpire_id.clone(),
+            left_field_umpire_name: game.left_field_umpire_name.clone(),
+            left_field_umpire_id: game.left_field_umpire_id.clone(),
+            right_field_umpire_name: game.right_field_umpire_name.clone(),
+            right_field_umpire_id: game.right_field_umpire_id.clone(),
+            // 90
+            manager_name: game.visitor_manager_name.clone(),
+            manager_id: game.visitor_manager_id.clone(),
+            opponent_manager_name: game.home_manager_name.clone(),
+            opponent_manager_id: game.home_manager_id.clone(),
+            winning_pitcher_name: game.winning_pitcher_name.clone(),
+            winning_pitcher_id: game.winning_pitcher_id.clone(),
+            losing_pitcher_name: game.losing_pitcher_name.clone(),
+            losing_pitcher_id: game.losing_pitcher_id.clone(),
+            saving_pitcher_name: game.saving_pitcher_name.clone(),
+            saving_pitcher_id: game.saving_pitcher_id.clone(),
+            // 100
+            gwrbi_player_name: game.gwrbi_player_name.clone(),
+            gwrbi_player_id: game.gwrbi_player_id.clone(),
+            starter_name: game.visitor_starter_name.clone(),
+            starter_id: game.visitor_starter_id.clone(),
+            opponent_starter_name: game.home_starter_name.clone(),
+            opponent_starter_id: game.home_starter_id.clone(),
+            lineup_1_id: game.visitor_1_id.clone(),
+            lineup_1_name: game.visitor_1_name.clone(),
+            lineup_1_pos: game.visitor_1_pos.clone(),
+            lineup_2_id: game.visitor_2_id.clone(),
+            // 110
+            lineup_2_name: game.visitor_2_name.clone(),
+            lineup_2_pos: game.visitor_2_pos.clone(),
+            lineup_3_id: game.visitor_3_id.clone(),
+            lineup_3_name: game.visitor_3_name.clone(),
+            lineup_3_pos: game.visitor_3_pos.clone(),
+            lineup_4_id: game.visitor_4_id.clone(),
+            lineup_4_name: game.visitor_4_name.clone(),
+            lineup_4_pos: game.visitor_4_pos.clone(),
+            lineup_5_id: game.visitor_5_id.clone(),
+            lineup_5_name: game.visitor_5_name.clone(),
+            // 120
+            lineup_5_pos: game.visitor_5_pos.clone(),
+            lineup_6_id: game.visitor_6_id.clone(),
+            lineup_6_name: game.visitor_6_name.clone(),
+            lineup_6_pos: game.visitor_6_pos.clone(),
+            lineup_7_id: game.visitor_7_id.clone(),
+            lineup_7_name: game.visitor_7_name.clone(),
+            lineup_7_pos: game.visitor_7_pos.clone(),
+            lineup_8_id: game.visitor_8_id.clone(),
+            lineup_8_name: game.visitor_8_name.clone(),
+            lineup_8_pos: game.visitor_8_pos.clone(),
+            // 130
+            lineup_9_id: game.visitor_9_id.clone(),
+            lineup_9_name: game.visitor_9_name.clone(),
+            lineup_9_pos: game.visitor_9_pos.clone(),
+            opponent_1_id: game.home_1_id.clone(),
+            opponent_1_name: game.home_1_name.clone(),
+            opponent_1_pos: game.home_1_pos.clone(),
+            opponent_2_id: game.home_2_id.clone(),
+            opponent_2_name: game.home_2_name.clone(),
+            opponent_2_pos: game.home_2_pos.clone(),
+            opponent_3_id: game.home_3_id.clone(),
+            // 140
+            opponent_3_name: game.home_3_name.clone(),
+            opponent_3_pos: game.home_3_pos.clone(),
+            opponent_4_id: game.home_4_id.clone(),
+            opponent_4_name: game.home_4_name.clone(),
+            opponent_4_pos: game.home_4_pos.clone(),
+            opponent_5_id: game.home_5_id.clone(),
+            opponent_5_name: game.home_5_name.clone(),
+            opponent_5_pos: game.home_5_pos.clone(),
+            opponent_6_id: game.home_6_id.clone(),
+            opponent_6_name: game.home_6_name.clone(),
+            // 150
+            opponent_6_pos: game.home_6_pos.clone(),
+            opponent_7_id: game.home_7_id.clone(),
+            opponent_7_name: game.home_7_name.clone(),
+            opponent_7_pos: game.home_7_pos.clone(),
+            opponent_8_id: game.home_8_id.clone(),
+            opponent_8_name: game.home_8_name.clone(),
+            opponent_8_pos: game.home_8_pos.clone(),
+            opponent_9_id: game.home_9_id.clone(),
+            opponent_9_name: game.home_9_name.clone(),
+            opponent_9_pos: game.home_9_pos.clone(),
+            // 160
+            additional_info: game.additional_info.clone(),
+            acquisition_info: game.acquisition_info.clone(),
+        }
+    }
+}
+
+
+impl CelEval for TeamGameLog {
+    fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>> {
+        for name in variables {
+            match *name {
+                "w" => context.add_variable_from_value("w", self.w),
+                "l" => context.add_variable_from_value("l", self.l),
+                "t" => context.add_variable_from_value("t", self.t),
+                "date" => {
+                    let mut date_map: HashMap<_, Value> = HashMap::with_capacity(4);
+                    date_map.insert("year", self.date.year().into());
+                    date_map.insert("month", self.date.month().into());
+                    date_map.insert("day", self.date.day().into());
+                    context.add_variable_from_value("date", date_map)
+                }
+                "number_of_game" => context.add_variable_from_value("number_of_game", self.number_of_game.clone()),
+                "day_of_week" => context.add_variable_from_value("day_of_week", self.day_of_week.clone()),
+                "team" => context.add_variable_from_value("team", self.team.clone()),
+                "league" => context.add_variable_from_value("league", self.league.clone()),
+                "team_game_number" => context.add_variable_from_value("team_game_number", self.team_game_number as u64),
+                "opponent_team" => context.add_variable_from_value("opponent_team", self.opponent_team.clone()),
+                "opponent_league" => context.add_variable_from_value("opponent_league", self.opponent_league.clone()),
+                "opponent_team_game_number" => context.add_variable("opponent_team_game_number", self.opponent_team_game_number)?,
+                "score" => context.add_variable_from_value("score", self.score as u64),
+                "opponent_score" => context.add_variable_from_value("opponent_score", self.opponent_score as u64),
+                "number_of_outs" => context.add_variable("number_of_outs", self.number_of_outs)?,
+                "day_night" => context.add_variable_from_value("day_night", self.day_night.clone()),
+                "completion_info" => context.add_variable_from_value("completion_info", self.completion_info.clone()),
+                "forfeit_info" => context.add_variable_from_value("forfeit_info", self.forfeit_info.clone()),
+                "protest_info" => context.add_variable_from_value("protest_info", self.protest_info.clone()),
+                "park_id" => context.add_variable_from_value("park_id", self.park_id.clone()),
+                "attendance" => context.add_variable_from_value("attendance", self.attendance),
+                "time_of_game" => context.add_variable("time_of_game", self.time_of_game)?,
+                "line_score" => context.add_variable("line_score", self.line_score.as_vec())?,
+                "opponent_line_score" => context.add_variable("opponent_line_score", self.opponent_line_score.as_vec())?,
+                "ab" => context.add_variable("ab", self.ab)?,
+                "hits" => context.add_variable("hits", self.hits)?,
+                "doubles" => context.add_variable_from_value("doubles", self.doubles.clone()),
+                "triples" => context.add_variable_from_value("triples", self.triples.clone()),
+                "homeruns" => context.add_variable_from_value("homeruns", self.homeruns.clone()),
+                "rbi" => context.add_variable_from_value("rbi", self.rbi.clone()),
+                "sac_hits" => context.add_variable("sac_hits", self.sac_hits)?,
+                "sac_flies" => context.add_variable_from_value("sac_flies", self.sac_flies.clone()),
+                "hbp" => context.add_variable_from_value("hbp", self.hbp.clone()),
+                "walks" => context.add_variable_from_value("walks", self.walks.clone()),
+                "intentional_walks" => context.add_variable_from_value("intentional_walks", self.intentional_walks.clone()),
+                "strikeouts" => context.add_variable_from_value("strikeouts", self.strikeouts.clone()),
+                "stolen_bases" => context.add_variable_from_value("stolen_bases", self.stolen_bases.clone()),
+                "caught_stealing" => context.add_variable_from_value("caught_stealing", self.caught_stealing.clone()),
+                "gidp" => context.add_variable_from_value("gidp", self.gidp.clone()),
+                "catcher_interference" => context.add_variable_from_value("catcher_interference", self.catcher_interference.clone()),
+                "left_on_base" => context.add_variable_from_value("left_on_base", self.left_on_base.clone()),
+                "pitchers_used" => context.add_variable("pitchers_used", self.pitchers_used)?,
+                "individual_earned_runs" => context.add_variable_from_value("individual_earned_runs", self.individual_earned_runs.clone()),
+                "team_earned_runs" => context.add_variable("team_earned_runs", self.team_earned_runs)?,
+                "wild_pitches" => context.add_variable_from_value("wild_pitches", self.wild_pitches.clone()),
+                "balks" => context.add_variable("balks", self.balks)?,
+                "putouts" => context.add_variable_from_value("putouts", self.putouts.clone()),
+                "assists" => context.add_variable_from_value("assists", self.assists.clone()),
+                "errors" => context.add_variable_from_value("errors", self.errors.clone()),
+                "passed_balls" => context.add_variable_from_value("passed_balls", self.passed_balls.clone()),
+                "double_plays" => context.add_variable_from_value("double_plays", self.double_plays.clone()),
+                "triple_plays" => context.add_variable("triple_plays", self.triple_plays)?,
+                "opponent_ab" => context.add_variable("opponent_ab", self.opponent_ab)?,
+                "opponent_hits" => context.add_variable("opponent_hits", self.opponent_hits)?,
+                "opponent_doubles" => context.add_variable_from_value("opponent_doubles", self.opponent_doubles.clone()),
+                "opponent_triples" => context.add_variable_from_value("opponent_triples", self.opponent_triples.clone()),
+                "opponent_homeruns" => context.add_variable_from_value("opponent_homeruns", self.opponent_homeruns.clone()),
+                "opponent_rbi" => context.add_variable_from_value("opponent_rbi", self.opponent_rbi.clone()),
+                "opponent_sac_hits" => context.add_variable("opponent_sac_hits", self.opponent_sac_hits)?,
+                "opponent_sac_flies" => context.add_variable_from_value("opponent_sac_flies", self.opponent_sac_flies.clone()),
+                "opponent_hbp" => context.add_variable_from_value("opponent_hbp", self.opponent_hbp.clone()),
+                "opponent_walks" => context.add_variable_from_value("opponent_walks", self.opponent_walks.clone()),
+                "opponent_intentional_walks" => context.add_variable_from_value("opponent_intentional_walks", self.opponent_intentional_walks.clone()),
+                "opponent_strikeouts" => context.add_variable_from_value("opponent_strikeouts", self.opponent_strikeouts.clone()),
+                "opponent_stolen_bases" => context.add_variable_from_value("opponent_stolen_bases", self.opponent_stolen_bases.clone()),
+                "opponent_caught_stealing" => context.add_variable_from_value("opponent_caught_stealing", self.opponent_caught_stealing.clone()),
+                "opponent_gidp" => context.add_variable_from_value("opponent_gidp", self.opponent_gidp.clone()),
+                "opponent_catcher_interference" => context.add_variable_from_value("opponent_catcher_interference", self.opponent_catcher_interference.clone()),
+                "opponent_left_on_base" => context.add_variable_from_value("opponent_left_on_base", self.opponent_left_on_base.clone()),
+                "opponent_pitchers_used" => context.add_variable("opponent_pitchers_used", self.opponent_pitchers_used)?,
+                "opponent_individual_earned_runs" => context.add_variable_from_value("opponent_individual_earned_runs", self.opponent_individual_earned_runs.clone()),
+                "opponent_team_earned_runs" => context.add_variable("opponent_team_earned_runs", self.opponent_team_earned_runs)?,
+                "opponent_wild_pitches" => context.add_variable_from_value("opponent_wild_pitches", self.opponent_wild_pitches.clone()),
+                "opponent_balks" => context.add_variable("opponent_balks", self.opponent_balks)?,
+                "opponent_putouts" => context.add_variable_from_value("opponent_putouts", self.opponent_putouts.clone()),
+                "opponent_assists" => context.add_variable_from_value("opponent_assists", self.opponent_assists.clone()),
+                "opponent_errors" => context.add_variable_from_value("opponent_errors", self.opponent_errors.clone()),
+                "opponent_passed_balls" => context.add_variable_from_value("opponent_passed_balls", self.opponent_passed_balls.clone()),
+                "opponent_double_plays" => context.add_variable_from_value("opponent_double_plays", self.opponent_double_plays.clone()),
+                "opponent_triple_plays" => context.add_variable("opponent_triple_plays", self.opponent_triple_plays)?,
+                "home_plate_umpire_name" => context.add_variable_from_value("home_plate_umpire_name", self.home_plate_umpire_name.clone()),
+                "home_plate_umpire_id" => context.add_variable_from_value("home_plate_umpire_id", self.home_plate_umpire_id.clone()),
+                "first_base_umpire_name" => context.add_variable_from_value("first_base_umpire_name", self.first_base_umpire_name.clone()),
+                "first_base_umpire_id" => context.add_variable_from_value("first_base_umpire_id", self.first_base_umpire_id.clone()),
+                "second_base_umpire_name" => context.add_variable_from_value("second_base_umpire_name", self.second_base_umpire_name.clone()),
+                "second_base_umpire_id" => context.add_variable_from_value("second_base_umpire_id", self.second_base_umpire_id.clone()),
+                "third_base_umpire_name" => context.add_variable_from_value("third_base_umpire_name", self.third_base_umpire_name.clone()),
+                "third_base_umpire_id" => context.add_variable_from_value("third_base_umpire_id", self.third_base_umpire_id.clone()),
+                "left_field_umpire_name" => context.add_variable_from_value("left_field_umpire_name", self.left_field_umpire_name.clone()),
+                "left_field_umpire_id" => context.add_variable_from_value("left_field_umpire_id", self.left_field_umpire_id.clone()),
+                "right_field_umpire_name" => context.add_variable_from_value("right_field_umpire_name", self.right_field_umpire_name.clone()),
+                "right_field_umpire_id" => context.add_variable_from_value("right_field_umpire_id", self.right_field_umpire_id.clone()),
+                "manager_id" => context.add_variable_from_value("manager_id", self.manager_id.clone()),
+                "manager_name" => context.add_variable_from_value("manager_name", self.manager_name.clone()),
+                "opponent_manager_id" => context.add_variable_from_value("opponent_manager_id", self.opponent_manager_id.clone()),
+                "opponent_manager_name" => context.add_variable_from_value("opponent_manager_name", self.opponent_manager_name.clone()),
+                "winning_pitcher_name" => context.add_variable_from_value("winning_pitcher_name", self.winning_pitcher_name.clone()),
+                "winning_pitcher_id" => context.add_variable_from_value("winning_pitcher_id", self.winning_pitcher_id.clone()),
+                "losing_pitcher_name" => context.add_variable_from_value("losing_pitcher_name", self.losing_pitcher_name.clone()),
+                "losing_pitcher_id" => context.add_variable_from_value("losing_pitcher_id", self.losing_pitcher_id.clone()),
+                "saving_pitcher_name" => context.add_variable_from_value("saving_pitcher_name", self.saving_pitcher_name.clone()),
+                "saving_pitcher_id" => context.add_variable_from_value("saving_pitcher_id", self.saving_pitcher_id.clone()),
+                "gwrbi_player_name" => context.add_variable_from_value("gwrbi_player_name", self.gwrbi_player_name.clone()),
+                "gwrbi_player_id" => context.add_variable_from_value("gwrbi_player_id", self.gwrbi_player_id.clone()),
+                "starter_name" => context.add_variable_from_value("starter_name", self.starter_name.clone()),
+                "starter_id" => context.add_variable_from_value("starter_id", self.starter_id.clone()),
+                "opponent_starter_name" => context.add_variable_from_value("opponent_starter_name", self.opponent_starter_name.clone()),
+                "opponent_starter_id" => context.add_variable_from_value("opponent_starter_id", self.opponent_starter_id.clone()),
+                "lineup_1_id" => context.add_variable_from_value("lineup_1_id", self.lineup_1_id.clone()),
+                "lineup_1_name" => context.add_variable_from_value("lineup_1_name", self.lineup_1_name.clone()),
+                "lineup_1_pos" => context.add_variable_from_value("lineup_1_pos", self.lineup_1_pos.clone()),
+                "lineup_2_id" => context.add_variable_from_value("lineup_2_id", self.lineup_2_id.clone()),
+                "lineup_2_name" => context.add_variable_from_value("lineup_2_name", self.lineup_2_name.clone()),
+                "lineup_2_pos" => context.add_variable_from_value("lineup_2_pos", self.lineup_2_pos.clone()),
+                "lineup_3_id" => context.add_variable_from_value("lineup_3_id", self.lineup_3_id.clone()),
+                "lineup_3_name" => context.add_variable_from_value("lineup_3_name", self.lineup_3_name.clone()),
+                "lineup_3_pos" => context.add_variable_from_value("lineup_3_pos", self.lineup_3_pos.clone()),
+                "lineup_4_id" => context.add_variable_from_value("lineup_4_id", self.lineup_4_id.clone()),
+                "lineup_4_name" => context.add_variable_from_value("lineup_4_name", self.lineup_4_name.clone()),
+                "lineup_4_pos" => context.add_variable_from_value("lineup_4_pos", self.lineup_4_pos.clone()),
+                "lineup_5_id" => context.add_variable_from_value("lineup_5_id", self.lineup_5_id.clone()),
+                "lineup_5_name" => context.add_variable_from_value("lineup_5_name", self.lineup_5_name.clone()),
+                "lineup_5_pos" => context.add_variable_from_value("lineup_5_pos", self.lineup_5_pos.clone()),
+                "lineup_6_id" => context.add_variable_from_value("lineup_6_id", self.lineup_6_id.clone()),
+                "lineup_6_name" => context.add_variable_from_value("lineup_6_name", self.lineup_6_name.clone()),
+                "lineup_6_pos" => context.add_variable_from_value("lineup_6_pos", self.lineup_6_pos.clone()),
+                "lineup_7_id" => context.add_variable_from_value("lineup_7_id", self.lineup_7_id.clone()),
+                "lineup_7_name" => context.add_variable_from_value("lineup_7_name", self.lineup_7_name.clone()),
+                "lineup_7_pos" => context.add_variable_from_value("lineup_7_pos", self.lineup_7_pos.clone()),
+                "lineup_8_id" => context.add_variable_from_value("lineup_8_id", self.lineup_8_id.clone()),
+                "lineup_8_name" => context.add_variable_from_value("lineup_8_name", self.lineup_8_name.clone()),
+                "lineup_8_pos" => context.add_variable_from_value("lineup_8_pos", self.lineup_8_pos.clone()),
+                "lineup_9_id" => context.add_variable_from_value("lineup_9_id", self.lineup_9_id.clone()),
+                "lineup_9_name" => context.add_variable_from_value("lineup_9_name", self.lineup_9_name.clone()),
+                "lineup_9_pos" => context.add_variable_from_value("lineup_9_pos", self.lineup_9_pos.clone()),
+                "opponent_1_id" => context.add_variable_from_value("opponent_1_id", self.opponent_1_id.clone()),
+                "opponent_1_name" => context.add_variable_from_value("opponent_1_name", self.opponent_1_name.clone()),
+                "opponent_1_pos" => context.add_variable_from_value("opponent_1_pos", self.opponent_1_pos.clone()),
+                "opponent_2_id" => context.add_variable_from_value("opponent_2_id", self.opponent_2_id.clone()),
+                "opponent_2_name" => context.add_variable_from_value("opponent_2_name", self.opponent_2_name.clone()),
+                "opponent_2_pos" => context.add_variable_from_value("opponent_2_pos", self.opponent_2_pos.clone()),
+                "opponent_3_id" => context.add_variable_from_value("opponent_3_id", self.opponent_3_id.clone()),
+                "opponent_3_name" => context.add_variable_from_value("opponent_3_name", self.opponent_3_name.clone()),
+                "opponent_3_pos" => context.add_variable_from_value("opponent_3_pos", self.opponent_3_pos.clone()),
+                "opponent_4_id" => context.add_variable_from_value("opponent_4_id", self.opponent_4_id.clone()),
+                "opponent_4_name" => context.add_variable_from_value("opponent_4_name", self.opponent_4_name.clone()),
+                "opponent_4_pos" => context.add_variable_from_value("opponent_4_pos", self.opponent_4_pos.clone()),
+                "opponent_5_id" => context.add_variable_from_value("opponent_5_id", self.opponent_5_id.clone()),
+                "opponent_5_name" => context.add_variable_from_value("opponent_5_name", self.opponent_5_name.clone()),
+                "opponent_5_pos" => context.add_variable_from_value("opponent_5_pos", self.opponent_5_pos.clone()),
+                "opponent_6_id" => context.add_variable_from_value("opponent_6_id", self.opponent_6_id.clone()),
+                "opponent_6_name" => context.add_variable_from_value("opponent_6_name", self.opponent_6_name.clone()),
+                "opponent_6_pos" => context.add_variable_from_value("opponent_6_pos", self.opponent_6_pos.clone()),
+                "opponent_7_id" => context.add_variable_from_value("opponent_7_id", self.opponent_7_id.clone()),
+                "opponent_7_name" => context.add_variable_from_value("opponent_7_name", self.opponent_7_name.clone()),
+                "opponent_7_pos" => context.add_variable_from_value("opponent_7_pos", self.opponent_7_pos.clone()),
+                "opponent_8_id" => context.add_variable_from_value("opponent_8_id", self.opponent_8_id.clone()),
+                "opponent_8_name" => context.add_variable_from_value("opponent_8_name", self.opponent_8_name.clone()),
+                "opponent_8_pos" => context.add_variable_from_value("opponent_8_pos", self.opponent_8_pos.clone()),
+                "opponent_9_id" => context.add_variable_from_value("opponent_9_id", self.opponent_9_id.clone()),
+                "opponent_9_name" => context.add_variable_from_value("opponent_9_name", self.opponent_9_name.clone()),
+                "opponent_9_pos" => context.add_variable_from_value("opponent_9_pos", self.opponent_9_pos.clone()),
+                "additional_info" => context.add_variable_from_value("additional_info", self.additional_info.clone()),
+                "acquisition_info" => context.add_variable_from_value("acquisition_info", self.acquisition_info.clone()),
+                _ => {},
+            }
+        }
+
+        Ok(())
+    }
+
+    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+        for name in variables {
+            match *name {
+                "w" => {}
+                "l" => {}
+                "t" => {}
+                "date" => {}
+                "number_of_game" => {}
+                "day_of_week" => {}
+                "team" => {}
+                "league" => {}
+                "team_game_number" => {}
+                "opponent_team" => {}
+                "opponent_league" => {}
+                "opponent_team_game_number" => {}
+                "score" => {}
+                "opponent_score" => {}
+                "number_of_outs" => {}
+                "day_night" => {}
+                "completion_info" => {}
+                "forfeit_info" => {}
+                "protest_info" => {}
+                "park_id" => {}
+                "attendance" => {}
+                "time_of_game" => {}
+                "line_score" => {}
+                "opponent_line_score" => {}
+                "ab" => {}
+                "hits" => {}
+                "doubles" => {}
+                "triples" => {}
+                "homeruns" => {}
+                "rbi" => {}
+                "sac_hits" => {}
+                "sac_flies" => {}
+                "hbp" => {}
+                "walks" => {}
+                "intentional_walks" => {}
+                "strikeouts" => {}
+                "stolen_bases" => {}
+                "caught_stealing" => {}
+                "gidp" => {}
+                "catcher_interference" => {}
+                "left_on_base" => {}
+                "pitchers_used" => {}
+                "individual_earned_runs" => {}
+                "team_earned_runs" => {}
+                "wild_pitches" => {}
+                "balks" => {}
+                "putouts" => {}
+                "assists" => {}
+                "errors" => {}
+                "passed_balls" => {}
+                "double_plays" => {}
+                "triple_plays" => {}
+                "opponent_ab" => {}
+                "opponent_hits" => {}
+                "opponent_doubles" => {}
+                "opponent_triples" => {}
+                "opponent_homeruns" => {}
+                "opponent_rbi" => {}
+                "opponent_sac_hits" => {}
+                "opponent_sac_flies" => {}
+                "opponent_hbp" => {}
+                "opponent_walks" => {}
+                "opponent_intentional_walks" => {}
+                "opponent_strikeouts" => {}
+                "opponent_stolen_bases" => {}
+                "opponent_caught_stealing" => {}
+                "opponent_gidp" => {}
+                "opponent_catcher_interference" => {}
+                "opponent_left_on_base" => {}
+                "opponent_pitchers_used" => {}
+                "opponent_individual_earned_runs" => {}
+                "opponent_team_earned_runs" => {}
+                "opponent_wild_pitches" => {}
+                "opponent_balks" => {}
+                "opponent_putouts" => {}
+                "opponent_assists" => {}
+                "opponent_errors" => {}
+                "opponent_passed_balls" => {}
+                "opponent_double_plays" => {}
+                "opponent_triple_plays" => {}
+                "home_plate_umpire_name" => {}
+                "home_plate_umpire_id" => {}
+                "first_base_umpire_name" => {}
+                "first_base_umpire_id" => {}
+                "second_base_umpire_name" => {}
+                "second_base_umpire_id" => {}
+                "third_base_umpire_name" => {}
+                "third_base_umpire_id" => {}
+                "left_field_umpire_name" => {}
+                "left_field_umpire_id" => {}
+                "right_field_umpire_name" => {}
+                "right_field_umpire_id" => {}
+                "manager_id" => {}
+                "manager_name" => {}
+                "opponent_manager_id" => {}
+                "opponent_manager_name" => {}
+                "winning_pitcher_name" => {}
+                "winning_pitcher_id" => {}
+                "losing_pitcher_name" => {}
+                "losing_pitcher_id" => {}
+                "saving_pitcher_name" => {}
+                "saving_pitcher_id" => {}
+                "gwrbi_player_name" => {}
+                "gwrbi_player_id" => {}
+                "starter_name" => {}
+                "starter_id" => {}
+                "opponent_starter_name" => {}
+                "opponent_starter_id" => {}
+                "lineup_1_id" => {}
+                "lineup_1_name" => {}
+                "lineup_1_pos" => {}
+                "lineup_2_id" => {}
+                "lineup_2_name" => {}
+                "lineup_2_pos" => {}
+                "lineup_3_id" => {}
+                "lineup_3_name" => {}
+                "lineup_3_pos" => {}
+                "lineup_4_id" => {}
+                "lineup_4_name" => {}
+                "lineup_4_pos" => {}
+                "lineup_5_id" => {}
+                "lineup_5_name" => {}
+                "lineup_5_pos" => {}
+                "lineup_6_id" => {}
+                "lineup_6_name" => {}
+                "lineup_6_pos" => {}
+                "lineup_7_id" => {}
+                "lineup_7_name" => {}
+                "lineup_7_pos" => {}
+                "lineup_8_id" => {}
+                "lineup_8_name" => {}
+                "lineup_8_pos" => {}
+                "lineup_9_id" => {}
+                "lineup_9_name" => {}
+                "lineup_9_pos" => {}
+                "opponent_1_id" => {}
+                "opponent_1_name" => {}
+                "opponent_1_pos" => {}
+                "opponent_2_id" => {}
+                "opponent_2_name" => {}
+                "opponent_2_pos" => {}
+                "opponent_3_id" => {}
+                "opponent_3_name" => {}
+                "opponent_3_pos" => {}
+                "opponent_4_id" => {}
+                "opponent_4_name" => {}
+                "opponent_4_pos" => {}
+                "opponent_5_id" => {}
+                "opponent_5_name" => {}
+                "opponent_5_pos" => {}
+                "opponent_6_id" => {}
+                "opponent_6_name" => {}
+                "opponent_6_pos" => {}
+                "opponent_7_id" => {}
+                "opponent_7_name" => {}
+                "opponent_7_pos" => {}
+                "opponent_8_id" => {}
+                "opponent_8_name" => {}
+                "opponent_8_pos" => {}
+                "opponent_9_id" => {}
+                "opponent_9_name" => {}
+                "opponent_9_pos" => {}
+                "additional_info" => {}
+                "acquisition_info" => {}
+                _ => return false,
+            }
+        }
+
+        true
+    }
+}
+
+
+impl SearchKey for TeamGameLog {
+    fn id(&self) -> &str { &self.game_id }
+
+    fn subject_id(&self) -> &str { &self.team }
+
+    fn order(&self) -> u32 { self.team_game_number as u32 }
 }
 
 

@@ -5,6 +5,7 @@ use std::path;
 use std::time::Instant;
 
 use baseball_tools::database::Sql;
+use baseball_tools::games;
 use baseball_tools::player;
 use baseball_tools::search::{CelEval, CelExec, Key, SearchKey, StreakSpan, WindowEntry};
 
@@ -35,7 +36,7 @@ enum SearchTable {
     BattingGameLogs,
     FieldingGameLogs,
     PitchingGameLogs,
-    Games,
+    TeamGames,
 }
 
 #[derive(Clone, Subcommand)]
@@ -138,26 +139,36 @@ impl QueryArgs {
         let mut select_sql = String::with_capacity(300);
         let mut params = Vec::new();
         let table_name = T::table_name();
+
+        // When loading from the team's table, no need to JOIN because the table has the game date
+        // as a column.
+        let loading_teams = table_name == "games";
+
         select_sql.push_str("SELECT ");
         // Need to do a join if not separating the games by year or if limiting the games to select
         // by a year.
         let need_where = self.year_start.is_some() || self.year_end.is_some();
-        let join = !self.career || need_where;
+        let join = !loading_teams && (!self.career || need_where);
         // This column is only necessary when needing to split up the player game logs by season.
         // It can be skipped in career mode.
-        if !self.career {
+        if !self.career && !loading_teams {
             select_sql.push_str("games.date, ");
         }
         for (idx, name) in T::column_names().iter().enumerate() {
             if idx > 0 {
                 select_sql.push_str(", ");
             }
-            select_sql.push_str("gl.");
+            if !loading_teams {
+                select_sql.push_str("gl.");
+            }
             select_sql.push_str(name);
         }
         select_sql.push_str(" FROM ");
         select_sql.push_str(table_name);
-        select_sql.push_str(" gl");
+        // Don't rename when loading teams.
+        if !loading_teams {
+            select_sql.push_str(" gl");
+        }
         if join {
             select_sql.push_str(" JOIN games ON gl.game_id = games.game_id");
         }
@@ -240,6 +251,34 @@ fn player_game_streak<T>(streak_args: &StreakArgs, mut players: HashMap<Key, Vec
 }
 
 
+fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<games::TeamGameLog>>, Box<dyn Error>> {
+    let (select_sql, params) = args.build_game_log_query::<games::GameLog>();
+    let load_start = Instant::now();
+    let mut team_seasons = HashMap::new();
+    let mut statement = conn.prepare(&select_sql)?;
+    let mut found_game_logs = 0;
+    let mut rows = statement.query(&params[0..])?;
+    while let Some(row) = rows.next()? {
+        let gl = games::GameLog::read_row(row, 0)?;
+        let (home, visitor) = gl.each_team_game();
+        {
+            let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
+            let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+            entry.push(home);
+        }
+        {
+            let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
+            let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+            entry.push(visitor);
+        }
+        found_game_logs += 1;
+    }
+    let load_end = Instant::now();
+    debug!(team_seasons = team_seasons.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded player games");
+    Ok(team_seasons)
+}
+
+
 fn display_streaks(mut streaks: Vec<StreakSpan>) {
     streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
     println!("Total streaks: {}", streaks.len());
@@ -300,6 +339,15 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
 }
 
 
+fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
+{
+    let query_args = QueryArgs::from_streak(&streak_args);
+    let team_seasons: HashMap<_, Vec<games::TeamGameLog>> = load_team_games(connection, &query_args)?;
+    player_game_streak(streak_args, team_seasons)?;
+    Ok(())
+}
+
+
 fn run() -> Result<(), Box<dyn Error>> {
     let args = PlayIndexCelArgs::parse();
 
@@ -314,6 +362,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
         (SearchTable::PitchingGameLogs, SearchCommand::Streak(streak_args)) => {
             find_player_game_log_streaks::<player::PitchingGamelog>(&connection, &streak_args)?;
+        }
+        (SearchTable::TeamGames, SearchCommand::Streak(streak_args)) => {
+            find_team_game_streaks(&connection, &streak_args)?;
         }
         (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
             let query_args = QueryArgs::from_window(&window_args);
