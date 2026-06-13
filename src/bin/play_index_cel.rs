@@ -255,15 +255,31 @@ fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, V
     while let Some(row) = rows.next()? {
         let gl = games::GameLogSmall::read_row(row, 0)?;
         let (home, visitor) = gl.each_team_game();
-        {
-            let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
-            let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
-            entry.push(home);
+        match &args.team {
+            Some(team) if *team == home.team => {
+                let home_key = Key { id: team.to_string(), year: home.date.year() };
+                let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+                entry.push(home);
+            }
+            None => {
+                let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
+                let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+                entry.push(home);
+            }
+            Some(_) => { }
         }
-        {
-            let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
-            let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
-            entry.push(visitor);
+        match &args.team {
+            Some(team) if *team == visitor.team => {
+                let visitor_key = Key { id: team.to_string(), year: visitor.date.year() };
+                let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+                entry.push(visitor);
+            }
+            None => {
+                let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
+                let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+                entry.push(visitor);
+            }
+            Some(_team) => { }
         }
         found_game_logs += 1;
     }
