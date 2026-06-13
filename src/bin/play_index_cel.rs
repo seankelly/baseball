@@ -251,15 +251,15 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
 }
 
 
-fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<games::TeamGameLog>>, Box<dyn Error>> {
-    let (select_sql, params) = args.build_game_log_query::<games::GameLog>();
+fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<games::TeamGameLogSmall>>, Box<dyn Error>> {
+    let (select_sql, params) = args.build_game_log_query::<games::GameLogSmall>();
     let load_start = Instant::now();
     let mut team_seasons = HashMap::new();
     let mut statement = conn.prepare(&select_sql)?;
     let mut found_game_logs = 0;
     let mut rows = statement.query(&params[0..])?;
     while let Some(row) = rows.next()? {
-        let gl = games::GameLog::read_row(row, 0)?;
+        let gl = games::GameLogSmall::read_row(row, 0)?;
         let (home, visitor) = gl.each_team_game();
         {
             let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
@@ -342,7 +342,7 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
 fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
 {
     let query_args = QueryArgs::from_streak(&streak_args);
-    let team_seasons: HashMap<_, Vec<games::TeamGameLog>> = load_team_games(connection, &query_args)?;
+    let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(connection, &query_args)?;
     find_game_streaks(streak_args, team_seasons)?;
     Ok(())
 }
