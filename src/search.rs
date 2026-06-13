@@ -270,6 +270,7 @@ impl<'a> CelExec<'a> {
             let item_count = match value {
                 Value::Int(i) => { *i as u32 }
                 Value::UInt(u) => { *u as u32 }
+                Value::Bool(true) => { 1 }
                 _ => 0,
             };
             count += item_count;
