@@ -221,6 +221,34 @@ fn load_player_games<T: SearchKey + Sql>(conn: &Connection, args: &QueryArgs) ->
 }
 
 
+fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<games::TeamGameLogSmall>>, Box<dyn Error>> {
+    let (select_sql, params) = args.build_game_log_query::<games::GameLogSmall>();
+    let load_start = Instant::now();
+    let mut team_seasons = HashMap::new();
+    let mut statement = conn.prepare(&select_sql)?;
+    let mut found_game_logs = 0;
+    let mut rows = statement.query(&params[0..])?;
+    while let Some(row) = rows.next()? {
+        let gl = games::GameLogSmall::read_row(row, 0)?;
+        let (home, visitor) = gl.each_team_game();
+        {
+            let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
+            let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+            entry.push(home);
+        }
+        {
+            let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
+            let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+            entry.push(visitor);
+        }
+        found_game_logs += 1;
+    }
+    let load_end = Instant::now();
+    debug!(team_seasons = team_seasons.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded team games");
+    Ok(team_seasons)
+}
+
+
 fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + SearchKey + CelEval
 {
@@ -251,34 +279,6 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
 }
 
 
-fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, Vec<games::TeamGameLogSmall>>, Box<dyn Error>> {
-    let (select_sql, params) = args.build_game_log_query::<games::GameLogSmall>();
-    let load_start = Instant::now();
-    let mut team_seasons = HashMap::new();
-    let mut statement = conn.prepare(&select_sql)?;
-    let mut found_game_logs = 0;
-    let mut rows = statement.query(&params[0..])?;
-    while let Some(row) = rows.next()? {
-        let gl = games::GameLogSmall::read_row(row, 0)?;
-        let (home, visitor) = gl.each_team_game();
-        {
-            let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
-            let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
-            entry.push(home);
-        }
-        {
-            let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
-            let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
-            entry.push(visitor);
-        }
-        found_game_logs += 1;
-    }
-    let load_end = Instant::now();
-    debug!(team_seasons = team_seasons.len(), games_found = found_game_logs, duration = format!("{:?}", load_end.duration_since(load_start)), "Loaded team games");
-    Ok(team_seasons)
-}
-
-
 fn display_streaks(mut streaks: Vec<StreakSpan>) {
     streaks.sort_unstable_by_key(|streak| Reverse(streak.count));
     println!("Total streaks: {}", streaks.len());
@@ -291,24 +291,24 @@ fn display_streaks(mut streaks: Vec<StreakSpan>) {
 }
 
 
-fn player_game_window<T>(window_args: &WindowArgs, mut players: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
+fn find_game_windows<T>(window_args: &WindowArgs, mut games: HashMap<Key, Vec<T>>) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
     exec.set_count(&window_args.count)?;
 
     let sort_start = Instant::now();
-    players.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
+    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
     let eval_start = Instant::now();
-    let player_windows = exec.window_eval(&players, window_args.size as usize);
+    let team_windows = exec.window_eval(&games, window_args.size as usize);
     let eval_end = Instant::now();
     debug!(size = window_args.size, duration = format!("{:?}", eval_end.duration_since(eval_start)), "Evaluated game windows");
 
     let check_start = Instant::now();
-    let windows = exec.sort_windows(&player_windows);
+    let windows = exec.sort_windows(&team_windows);
     let check_end = Instant::now();
     debug!(duration = format!("{:?}", check_end.duration_since(check_start)), "Sorted windows");
 
@@ -321,7 +321,7 @@ fn player_game_window<T>(window_args: &WindowArgs, mut players: HashMap<Key, Vec
 fn display_windows(windows: Vec<&WindowEntry>) {
     println!("Total windows: {}", windows.len());
     if !windows.is_empty() {
-        println!("player ID | game start | game end | count");
+        println!("subject ID | game start | game end | count");
         for window in windows.iter().take(200) {
             println!("{} | {} | {} | {}", window.id, window.start, window.end, window.count);
         }
@@ -333,8 +333,8 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
     let query_args = QueryArgs::from_streak(&streak_args);
-    let batters: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
-    find_game_streaks(streak_args, batters)?;
+    let players: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
+    find_game_streaks(streak_args, players)?;
     Ok(())
 }
 
@@ -344,6 +344,25 @@ fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> 
     let query_args = QueryArgs::from_streak(&streak_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(connection, &query_args)?;
     find_game_streaks(streak_args, team_seasons)?;
+    Ok(())
+}
+
+
+fn find_player_game_log_windows<T>(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
+    where T: Send + Sync + CelEval + SearchKey + Sql
+{
+    let query_args = QueryArgs::from_window(&window_args);
+    let players: HashMap<_, Vec<T>> = load_player_games(&connection, &query_args)?;
+    find_game_windows(&window_args, players)?;
+    Ok(())
+}
+
+
+fn find_team_game_windows(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
+{
+    let query_args = QueryArgs::from_window(&window_args);
+    let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(&connection, &query_args)?;
+    find_game_windows(&window_args, team_seasons)?;
     Ok(())
 }
 
@@ -367,19 +386,16 @@ fn run() -> Result<(), Box<dyn Error>> {
             find_team_game_streaks(&connection, &streak_args)?;
         }
         (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
-            let query_args = QueryArgs::from_window(&window_args);
-            let batters: HashMap<_, Vec<player::BattingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_window(&window_args, batters)?;
+            find_player_game_log_windows::<player::BattingGamelog>(&connection, &window_args)?;
         }
         (SearchTable::FieldingGameLogs, SearchCommand::Window(window_args)) => {
-            let query_args = QueryArgs::from_window(&window_args);
-            let fielders: HashMap<_, Vec<player::FieldingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_window(&window_args, fielders)?;
+            find_player_game_log_windows::<player::FieldingGamelog>(&connection, &window_args)?;
         }
         (SearchTable::PitchingGameLogs, SearchCommand::Window(window_args)) => {
-            let query_args = QueryArgs::from_window(&window_args);
-            let pitchers: HashMap<_, Vec<player::PitchingGamelog>> = load_player_games(&connection, &query_args)?;
-            player_game_window(&window_args, pitchers)?;
+            find_player_game_log_windows::<player::PitchingGamelog>(&connection, &window_args)?;
+        }
+        (SearchTable::TeamGames, SearchCommand::Window(window_args)) => {
+            find_team_game_windows(&connection, &window_args)?;
         }
         _ => {
         }
