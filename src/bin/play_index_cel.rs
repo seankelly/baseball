@@ -24,6 +24,9 @@ struct PlayIndexCelArgs {
     #[arg(long, value_name = "PROGRAM")]
     sort_key: Option<String>,
 
+    #[arg(short = 't', long)]
+    team: Option<String>,
+
     database: path::PathBuf,
     table: SearchTable,
     #[command(subcommand)]
@@ -114,24 +117,27 @@ struct WindowArgs {
 
 struct QueryArgs {
     career: bool,
+    team: Option<String>,
     year_start: Option<i32>,
     year_end: Option<i32>,
 }
 
 impl QueryArgs {
-    fn from_streak(args: &StreakArgs) -> Self {
+    fn from_streak(args: &PlayIndexCelArgs, streak_args: &StreakArgs) -> Self {
         Self {
-            career: args.career,
-            year_start: args.year_start,
-            year_end: args.year_end,
+            career: streak_args.career,
+            team: args.team.clone(),
+            year_start: streak_args.year_start,
+            year_end: streak_args.year_end,
         }
     }
 
-    fn from_window(args: &WindowArgs) -> Self {
+    fn from_window(args: &PlayIndexCelArgs, window_args: &WindowArgs) -> Self {
         Self {
-            career: args.career,
-            year_start: args.year_start,
-            year_end: args.year_end,
+            career: window_args.career,
+            team: args.team.clone(),
+            year_start: window_args.year_start,
+            year_end: window_args.year_end,
         }
     }
 
@@ -147,7 +153,7 @@ impl QueryArgs {
         select_sql.push_str("SELECT ");
         // Need to do a join if not separating the games by year or if limiting the games to select
         // by a year.
-        let need_where = self.year_start.is_some() || self.year_end.is_some();
+        let need_where = self.team.is_some() || self.year_start.is_some() || self.year_end.is_some();
         let join = !loading_teams && (!self.career || need_where);
         // This column is only necessary when needing to split up the player game logs by season.
         // It can be skipped in career mode.
@@ -174,20 +180,38 @@ impl QueryArgs {
         }
 
         if need_where {
-            select_sql.push_str(" WHERE");
-        }
-        if let Some(year) = self.year_start {
-            select_sql.push_str(" strftime('%Y', games.date) >= :start");
-            params.push((":start", year.to_string()));
-        }
-        if let Some(year) = self.year_end {
-            if self.year_start.is_some() {
-                select_sql.push_str(" AND");
+            select_sql.push_str(" WHERE ");
+
+            let mut clauses = Vec::with_capacity(4);
+            if let Some(team) = &self.team {
+                if loading_teams {
+                    clauses.push("(visitor_team = :team OR home_team = :team)");
+                }
+                else {
+                    clauses.push("gl.team_id = :team");
+                }
+                params.push((":team", team.to_string()));
             }
-            select_sql.push_str(" strftime('%Y', games.date) <= :end");
-            params.push((":end", year.to_string()));
+            if let Some(year) = self.year_start {
+                clauses.push("strftime('%Y', games.date) >= :start");
+                params.push((":start", year.to_string()));
+            }
+            if let Some(year) = self.year_end {
+                clauses.push(" strftime('%Y', games.date) <= :end");
+                params.push((":end", year.to_string()));
+            }
+
+            select_sql.push_str(clauses.join(" AND ").as_str());
         }
-        debug!(sql = select_sql, career = self.career, year_start = self.year_start, year_end = self.year_end, length = select_sql.len(), "SQL to select game logs");
+        debug!(
+            sql = select_sql,
+            career = self.career,
+            team = self.team,
+            year_start = self.year_start,
+            year_end = self.year_end,
+            length = select_sql.len(),
+            "SQL to select game logs"
+        );
         (select_sql, params)
     }
 }
@@ -329,38 +353,38 @@ fn display_windows(windows: Vec<&WindowEntry>) {
 }
 
 
-fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
+fn find_player_game_log_streaks<T>(connection: &Connection, args: &PlayIndexCelArgs, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
-    let query_args = QueryArgs::from_streak(&streak_args);
+    let query_args = QueryArgs::from_streak(args, &streak_args);
     let players: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
     find_game_streaks(streak_args, players)?;
     Ok(())
 }
 
 
-fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
+fn find_team_game_streaks(connection: &Connection, args: &PlayIndexCelArgs, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
 {
-    let query_args = QueryArgs::from_streak(&streak_args);
+    let query_args = QueryArgs::from_streak(args, &streak_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(connection, &query_args)?;
     find_game_streaks(streak_args, team_seasons)?;
     Ok(())
 }
 
 
-fn find_player_game_log_windows<T>(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
+fn find_player_game_log_windows<T>(connection: &Connection, args: &PlayIndexCelArgs, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
-    let query_args = QueryArgs::from_window(&window_args);
+    let query_args = QueryArgs::from_window(args, window_args);
     let players: HashMap<_, Vec<T>> = load_player_games(&connection, &query_args)?;
     find_game_windows(&window_args, players)?;
     Ok(())
 }
 
 
-fn find_team_game_windows(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
+fn find_team_game_windows(connection: &Connection, args: &PlayIndexCelArgs, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
 {
-    let query_args = QueryArgs::from_window(&window_args);
+    let query_args = QueryArgs::from_window(args, window_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(&connection, &query_args)?;
     find_game_windows(&window_args, team_seasons)?;
     Ok(())
@@ -370,32 +394,32 @@ fn find_team_game_windows(connection: &Connection, window_args: &WindowArgs) -> 
 fn run() -> Result<(), Box<dyn Error>> {
     let args = PlayIndexCelArgs::parse();
 
-    let connection = Connection::open_with_flags(args.database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let connection = Connection::open_with_flags(&args.database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
-    match (args.table, args.mode) {
+    match (&args.table, &args.mode) {
         (SearchTable::BattingGameLogs, SearchCommand::Streak(streak_args)) => {
-            find_player_game_log_streaks::<player::BattingGamelog>(&connection, &streak_args)?;
+            find_player_game_log_streaks::<player::BattingGamelog>(&connection, &args, &streak_args)?;
         }
         (SearchTable::FieldingGameLogs, SearchCommand::Streak(streak_args)) => {
-            find_player_game_log_streaks::<player::FieldingGamelog>(&connection, &streak_args)?;
+            find_player_game_log_streaks::<player::FieldingGamelog>(&connection, &args, &streak_args)?;
         }
         (SearchTable::PitchingGameLogs, SearchCommand::Streak(streak_args)) => {
-            find_player_game_log_streaks::<player::PitchingGamelog>(&connection, &streak_args)?;
+            find_player_game_log_streaks::<player::PitchingGamelog>(&connection, &args, &streak_args)?;
         }
         (SearchTable::TeamGames, SearchCommand::Streak(streak_args)) => {
-            find_team_game_streaks(&connection, &streak_args)?;
+            find_team_game_streaks(&connection, &args, &streak_args)?;
         }
         (SearchTable::BattingGameLogs, SearchCommand::Window(window_args)) => {
-            find_player_game_log_windows::<player::BattingGamelog>(&connection, &window_args)?;
+            find_player_game_log_windows::<player::BattingGamelog>(&connection, &args, &window_args)?;
         }
         (SearchTable::FieldingGameLogs, SearchCommand::Window(window_args)) => {
-            find_player_game_log_windows::<player::FieldingGamelog>(&connection, &window_args)?;
+            find_player_game_log_windows::<player::FieldingGamelog>(&connection, &args, &window_args)?;
         }
         (SearchTable::PitchingGameLogs, SearchCommand::Window(window_args)) => {
-            find_player_game_log_windows::<player::PitchingGamelog>(&connection, &window_args)?;
+            find_player_game_log_windows::<player::PitchingGamelog>(&connection, &args, &window_args)?;
         }
         (SearchTable::TeamGames, SearchCommand::Window(window_args)) => {
-            find_team_game_windows(&connection, &window_args)?;
+            find_team_game_windows(&connection, &args, &window_args)?;
         }
         _ => {
         }
