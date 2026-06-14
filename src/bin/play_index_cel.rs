@@ -79,9 +79,6 @@ struct StreakArgs {
     #[arg(long)]
     game_start: Option<u16>,
 
-    #[arg(long)]
-    game_end: Option<u16>,
-
     #[arg(short = 'c', long)]
     career: bool,
 
@@ -109,9 +106,6 @@ struct WindowArgs {
     #[arg(long)]
     game_start: Option<u16>,
 
-    #[arg(long)]
-    game_end: Option<u16>,
-
     #[arg(short = 'c', long)]
     career: bool,
 
@@ -131,6 +125,7 @@ struct QueryArgs {
     team: Option<String>,
     year_start: Option<i32>,
     year_end: Option<i32>,
+    game_start: Option<u16>,
 }
 
 impl QueryArgs {
@@ -140,6 +135,7 @@ impl QueryArgs {
             team: streak_args.team.clone(),
             year_start: streak_args.year_start,
             year_end: streak_args.year_end,
+            game_start: streak_args.game_start,
         }
     }
 
@@ -149,6 +145,7 @@ impl QueryArgs {
             team: window_args.team.clone(),
             year_start: window_args.year_start,
             year_end: window_args.year_end,
+            game_start: window_args.game_start,
         }
     }
 
@@ -246,6 +243,14 @@ fn load_player_games<T: SearchKey + Sql>(conn: &Connection, args: &QueryArgs) ->
             gl = T::read_row(row, 1)?;
             Key { id: gl.subject_id().to_string(), year: date.year() }
         };
+
+        // If this game log comes before the starting game, ignore it.
+        if let Some(game_start) = args.game_start {
+            if gl.order(args.career) < game_start {
+                continue;
+            }
+        }
+
         let entry = players.entry(key).or_insert_with(|| Vec::new());
         entry.push(gl);
         found_game_logs += 1;
@@ -304,9 +309,13 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
     where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
+    exec.set_career_mode(streak_args.career);
     exec.set_condition(&streak_args.condition)?;
     if let Some(ref program) = streak_args.count {
         exec.set_count(program)?;
+    }
+    if let Some(game_start) = streak_args.game_start {
+        exec.set_game_start(game_start);
     }
 
     let sort_start = Instant::now();
@@ -346,6 +355,7 @@ fn find_game_windows<T>(window_args: &WindowArgs, mut games: HashMap<Key, Vec<T>
     where T: Send + Sync + SearchKey + CelEval
 {
     let mut exec = CelExec::default();
+    exec.set_career_mode(window_args.career);
     exec.set_count(&window_args.count)?;
 
     let sort_start = Instant::now();

@@ -2307,7 +2307,7 @@ impl SearchKey for TeamGameLog {
 
     fn subject_id(&self) -> &str { &self.team }
 
-    fn order(&self, _career: bool) -> u32 { self.team_game_number as u32 }
+    fn order(&self, _career: bool) -> u16 { self.team_game_number }
 }
 
 
@@ -2692,7 +2692,7 @@ impl SearchKey for TeamGameLogSmall {
 
     fn subject_id(&self) -> &str { &self.team }
 
-    fn order(&self, _career: bool) -> u32 { self.team_game_number as u32 }
+    fn order(&self, _career: bool) -> u16 { self.team_game_number }
 }
 
 
