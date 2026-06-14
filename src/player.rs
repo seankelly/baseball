@@ -236,7 +236,14 @@ impl SearchKey for BattingGamelog {
 
     fn subject_id(&self) -> &str { &self.player_id }
 
-    fn order(&self) -> u32 { self.career_game.into() }
+    fn order(&self, career: bool) -> u32 {
+        if career {
+            self.career_game.into()
+        }
+        else {
+            self.team_game.into()
+        }
+    }
 }
 
 
@@ -474,7 +481,14 @@ impl SearchKey for FieldingGamelog {
 
     fn subject_id(&self) -> &str { &self.player_id }
 
-    fn order(&self) -> u32 { self.career_game.into() }
+    fn order(&self, career: bool) -> u32 {
+        if career {
+            self.career_game.into()
+        }
+        else {
+            self.team_game.into()
+        }
+    }
 }
 
 
@@ -670,7 +684,14 @@ impl SearchKey for PitchingGamelog {
 
     fn subject_id(&self) -> &str { &self.player_id }
 
-    fn order(&self) -> u32 { self.career_game.into() }
+    fn order(&self, career: bool) -> u32 {
+        if career {
+            self.career_game.into()
+        }
+        else {
+            self.team_game.into()
+        }
+    }
 }
 
 

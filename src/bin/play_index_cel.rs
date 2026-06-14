@@ -269,12 +269,12 @@ fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, V
         match &args.team {
             Some(team) if *team == home.team => {
                 let home_key = Key { id: team.to_string(), year: home.date.year() };
-                let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+                let entry = team_seasons.entry(home_key).or_insert_with(Vec::new);
                 entry.push(home);
             }
             None => {
                 let home_key = Key { id: home.subject_id().to_string(), year: home.date.year() };
-                let entry = team_seasons.entry(home_key).or_insert_with(|| Vec::new());
+                let entry = team_seasons.entry(home_key).or_insert_with(Vec::new);
                 entry.push(home);
             }
             Some(_) => { }
@@ -282,12 +282,12 @@ fn load_team_games(conn: &Connection, args: &QueryArgs) -> Result<HashMap<Key, V
         match &args.team {
             Some(team) if *team == visitor.team => {
                 let visitor_key = Key { id: team.to_string(), year: visitor.date.year() };
-                let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+                let entry = team_seasons.entry(visitor_key).or_insert_with(Vec::new);
                 entry.push(visitor);
             }
             None => {
                 let visitor_key = Key { id: visitor.subject_id().to_string(), year: visitor.date.year() };
-                let entry = team_seasons.entry(visitor_key).or_insert_with(|| Vec::new());
+                let entry = team_seasons.entry(visitor_key).or_insert_with(Vec::new);
                 entry.push(visitor);
             }
             Some(_team) => { }
@@ -310,7 +310,7 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
     }
 
     let sort_start = Instant::now();
-    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
+    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order(streak_args.career)));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 
@@ -320,7 +320,7 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
     debug!(duration = format!("{:?}", eval_end.duration_since(eval_start)), "Evaluated games for streaks");
 
     let check_start = Instant::now();
-    let streaks = CelExec::find_streaks(&streak_map);
+    let streaks = exec.find_streaks(&streak_map);
     let check_end = Instant::now();
     debug!(duration = format!("{:?}", check_end.duration_since(check_start)), "Found streaks");
 
@@ -349,7 +349,7 @@ fn find_game_windows<T>(window_args: &WindowArgs, mut games: HashMap<Key, Vec<T>
     exec.set_count(&window_args.count)?;
 
     let sort_start = Instant::now();
-    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order()));
+    games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order(window_args.career)));
     let sort_end = Instant::now();
     debug!(duration = format!("{:?}", sort_end.duration_since(sort_start)), "Sorted games");
 

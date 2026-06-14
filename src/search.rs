@@ -23,7 +23,7 @@ pub trait SearchKey {
 
     fn subject_id(&self) -> &str;
 
-    fn order(&self) -> u32;
+    fn order(&self, career: bool) -> u32;
 }
 
 pub struct CelExec<'a> {
@@ -167,7 +167,7 @@ impl<'a> CelExec<'a> {
         }
     }
 
-    pub fn find_streaks(streak_map: &HashMap<&Key, Vec<StreakEntry>>) -> Vec<StreakSpan> {
+    pub fn find_streaks(&self, streak_map: &HashMap<&Key, Vec<StreakEntry>>) -> Vec<StreakSpan> {
         let mut streaks = Vec::with_capacity(150);
         let mut streak_minimum = 2;
         for (key, entries) in streak_map.iter() {
@@ -204,8 +204,7 @@ impl<'a> CelExec<'a> {
             }
 
             // Check for streaks that end with the final entry of the Vec.
-            if let (Some(start), Some(end)) = (streak_start, streak_end)
-                && count >= streak_minimum {
+            if let (Some(start), Some(end)) = (streak_start, streak_end) && count >= streak_minimum {
                 let span = StreakSpan {
                     id: key.id.to_owned(),
                     start: start.clone(),
@@ -219,8 +218,7 @@ impl<'a> CelExec<'a> {
             // Sort the spans and check the 100th entry to see if the streak minimum length should
             // increase. If so, prune the list to only spans meeting the new minimum.
             streaks.sort_unstable_by_key(|a| Reverse(a.count));
-            if let Some(span) = streaks.get(DEFAULT_RESULT_LIMIT)
-                && span.count > streak_minimum {
+            if let Some(span) = streaks.get(self.result_limit) && span.count > streak_minimum {
                 streak_minimum = span.count;
                 trace!(streak_minimum = streak_minimum, streaks = streaks.len(), "Increasing streak minimum");
                 streaks.retain(|span| span.count >= streak_minimum);
