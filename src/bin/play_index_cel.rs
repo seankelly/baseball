@@ -18,9 +18,6 @@ use tracing::debug;
 
 #[derive(Parser)]
 struct PlayIndexCelArgs {
-    #[arg(short = 'n', long)]
-    limit: Option<usize>,
-
     #[arg(long, value_name = "PROGRAM")]
     sort_key: Option<String>,
 
@@ -49,6 +46,9 @@ enum SearchCommand {
 
 #[derive(Clone, Args)]
 struct SearchArgs {
+    #[arg(short = 'n', long)]
+    limit: Option<usize>,
+
     #[arg(short = 't', long)]
     team: Option<String>,
 
@@ -67,6 +67,9 @@ struct SearchArgs {
 
 #[derive(Clone, Args)]
 struct StreakArgs {
+    #[arg(short = 'n', long)]
+    limit: Option<usize>,
+
     #[arg(short = 't', long)]
     team: Option<String>,
 
@@ -94,6 +97,9 @@ struct StreakArgs {
 
 #[derive(Clone, Args)]
 struct WindowArgs {
+    #[arg(short = 'n', long)]
+    limit: Option<usize>,
+
     #[arg(short = 't', long)]
     team: Option<String>,
 
@@ -317,6 +323,9 @@ fn find_game_streaks<T>(streak_args: &StreakArgs, mut games: HashMap<Key, Vec<T>
     if let Some(game_start) = streak_args.game_start {
         exec.set_game_start(game_start);
     }
+    if let Some(limit) = streak_args.limit {
+        exec.set_limit(limit);
+    }
 
     let sort_start = Instant::now();
     games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order(streak_args.career)));
@@ -357,6 +366,9 @@ fn find_game_windows<T>(window_args: &WindowArgs, mut games: HashMap<Key, Vec<T>
     let mut exec = CelExec::default();
     exec.set_career_mode(window_args.career);
     exec.set_count(&window_args.count)?;
+    if let Some(limit) = window_args.limit {
+        exec.set_limit(limit);
+    }
 
     let sort_start = Instant::now();
     games.par_iter_mut().for_each(|(_k, games)| games.sort_unstable_by_key(|g| g.order(window_args.career)));

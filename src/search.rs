@@ -104,6 +104,10 @@ impl<'a> CelExec<'a> {
         self.career_mode = mode;
     }
 
+    pub fn set_limit(&mut self, limit: usize) {
+        self.result_limit = limit;
+    }
+
     pub fn set_game_start(&mut self, start: u16) {
         self.game_start = Some(start);
     }
