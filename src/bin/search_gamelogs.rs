@@ -94,7 +94,7 @@ fn load_gamelog_file<T: DeserializeOwned>(file: &path::Path) -> Result<Vec<T>, B
 fn dump_csv<T: serde::Serialize>(gamelog: &[T], csv_file: &path::Path) -> Result<(), Box<dyn Error>> {
     let mut writer = csv::WriterBuilder::new()
         .has_headers(true)
-        .from_path(&csv_file)?;
+        .from_path(csv_file)?;
     for row in gamelog {
         writer.serialize(row)?;
     }

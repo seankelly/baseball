@@ -251,10 +251,8 @@ fn load_player_games<T: SearchKey + Sql>(conn: &Connection, args: &QueryArgs) ->
         };
 
         // If this game log comes before the starting game, ignore it.
-        if let Some(game_start) = args.game_start {
-            if gl.order(args.career) < game_start {
-                continue;
-            }
+        if let Some(game_start) = args.game_start && gl.order(args.career) < game_start {
+            continue;
         }
 
         let entry = players.entry(key).or_insert_with(|| Vec::new());
