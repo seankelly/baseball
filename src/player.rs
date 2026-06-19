@@ -192,7 +192,7 @@ impl CelEval for BattingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "career_game" => {},
@@ -452,7 +452,7 @@ impl CelEval for FieldingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "career_game" => {},
@@ -640,7 +640,7 @@ impl CelEval for PitchingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "career_game" => {},

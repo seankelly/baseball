@@ -400,9 +400,26 @@ fn display_windows(windows: Vec<&WindowEntry>) {
 }
 
 
+fn check_program<T: CelEval>(source: &str) -> Result<bool, Box<dyn Error>> {
+    if !CelExec::check_program_variables::<T>(source)? {
+        eprintln!("Program condition requires unknown variables.");
+        // Fix to be Err?
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+
 fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
+    if !check_program::<T>(&streak_args.condition)? {
+        return Ok(());
+    }
+    if let Some(count_program) = &streak_args.count && !check_program::<T>(count_program)? {
+        return Ok(());
+    }
+
     let query_args = QueryArgs::from_streak(streak_args);
     let players: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
     find_game_streaks(streak_args, players)?;
@@ -412,6 +429,13 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
 
 fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
 {
+    if !check_program::<games::TeamGameLogSmall>(&streak_args.condition)? {
+        return Ok(());
+    }
+    if let Some(count_program) = &streak_args.count && !check_program::<games::TeamGameLogSmall>(count_program)? {
+        return Ok(());
+    }
+
     let query_args = QueryArgs::from_streak(streak_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(connection, &query_args)?;
     find_game_streaks(streak_args, team_seasons)?;
@@ -422,6 +446,10 @@ fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> 
 fn find_player_game_log_windows<T>(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
+    if !check_program::<T>(&window_args.count)? {
+        return Ok(());
+    }
+
     let query_args = QueryArgs::from_window(window_args);
     let players: HashMap<_, Vec<T>> = load_player_games(connection, &query_args)?;
     find_game_windows(window_args, players)?;
@@ -431,6 +459,10 @@ fn find_player_game_log_windows<T>(connection: &Connection, window_args: &Window
 
 fn find_team_game_windows(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
 {
+    if !check_program::<games::TeamGameLogSmall>(&window_args.count)? {
+        return Ok(());
+    }
+
     let query_args = QueryArgs::from_window(window_args);
     let team_seasons: HashMap<_, Vec<games::TeamGameLogSmall>> = load_team_games(connection, &query_args)?;
     find_game_windows(window_args, team_seasons)?;

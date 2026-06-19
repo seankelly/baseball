@@ -2126,7 +2126,7 @@ impl CelEval for TeamGameLog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "w" => {}
@@ -2596,7 +2596,7 @@ impl CelEval for TeamGameLogSmall {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "w" => {}

@@ -35,7 +35,7 @@ impl CelEval for chadwick::gamelogs::BattingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "ab" => {},
@@ -85,7 +85,7 @@ impl CelEval for chadwick::gamelogs::FieldingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "pos" => {},
@@ -136,7 +136,7 @@ impl CelEval for chadwick::gamelogs::PitchingGamelog {
         Ok(())
     }
 
-    fn check_cel_variables(&self, variables: &[&str]) -> bool {
+    fn check_cel_variables(variables: &[&str]) -> bool {
         for name in variables {
             match *name {
                 "gs" => {},
