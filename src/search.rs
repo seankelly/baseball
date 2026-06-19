@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use tracing::trace;
 
 
-const DEFAULT_RESULT_LIMIT: usize = 100;
+const DEFAULT_RESULT_LIMIT: usize = 10;
 
 pub trait CelEval {
     fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>>;
