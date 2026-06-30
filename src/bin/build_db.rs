@@ -47,17 +47,25 @@ struct DatabaseArgs {
 }
 
 
-struct GameLoader<'a> {
+struct GameLogLoader<'a> {
     conn: &'a mut Connection,
     retrosheet_dir: path::PathBuf,
+    batting_career_games: HashMap<String, u16>,
+    fielding_career_games: HashMap<String, u16>,
+    pitching_career_games: HashMap<String, u16>,
+    game_date: HashMap<String, chrono::NaiveDate>,
 }
 
 
-impl<'a> GameLoader<'a> {
+impl<'a> GameLogLoader<'a> {
     fn new(conn: &'a mut Connection, retrosheet_dir: path::PathBuf) -> Self {
         Self {
             conn,
-            retrosheet_dir
+            retrosheet_dir,
+            batting_career_games: HashMap::new(),
+            fielding_career_games: HashMap::new(),
+            pitching_career_games: HashMap::new(),
+            game_date: HashMap::new(),
         }
     }
 
@@ -69,12 +77,12 @@ impl<'a> GameLoader<'a> {
         Ok(())
     }
 
-    fn insert_games(tx: &Transaction, games: &[games::GameLog]) -> Result<(), Box<dyn Error>> {
-        let mut insert_sql = String::with_capacity(3000);
+    fn insert_games<T: Sql>(tx: &Transaction, gamelogs: &[T]) -> Result<(), Box<dyn Error>> {
+        let mut insert_sql = String::with_capacity(250);
         insert_sql.push_str("INSERT INTO ");
-        insert_sql.push_str(games::GameLog::table_name());
+        insert_sql.push_str(T::table_name());
         insert_sql.push_str(" VALUES (");
-        for (idx, name) in games::GameLog::column_names().iter().enumerate() {
+        for (idx, name) in T::column_names().iter().enumerate() {
             if idx > 0 {
                 insert_sql.push_str(", ");
             }
@@ -84,7 +92,7 @@ impl<'a> GameLoader<'a> {
         insert_sql.push(')');
 
         let mut insert = tx.prepare(&insert_sql)?;
-        for game in games {
+        for game in gamelogs {
             game.write_row(&mut insert)?;
         }
 
@@ -135,11 +143,13 @@ impl<'a> GameLoader<'a> {
             let games = self.load_season_gamelog(season)?;
             println!("Found {} games", games.len());
             // Iterate one more time through every pitching game to calculate the league ERA and the
-            // unscaled FIP values to get the FIP constant for this season.
-            let league_stats = games.iter().fold(PitcherStats::new_with_fip(0.0), |mut lgstats, g| {
-                lgstats.add_team_gamelog(g);
-                lgstats
-            });
+            // unscaled FIP values to get the FIP constant for this season. Additionally, build the
+            // map of game ID to game date to allow sorting of player games.
+            let mut league_stats = PitcherStats::new_with_fip(0.0);
+            for game in &games {
+                league_stats.add_team_gamelog(game);
+                self.game_date.insert(game.game_id.to_owned(), game.date);
+            }
             let league_fip_constant = league_stats.era() - league_stats.fip();
             println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
             let season_numeric = season.parse::<u16>()?;
@@ -168,6 +178,7 @@ impl<'a> GameLoader<'a> {
         Ok(())
     }
 }
+
 
 struct PlayerGamelogLoader<'a> {
     conn: &'a mut Connection,
@@ -1081,7 +1092,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     create_internal_tables(&mut connection);
 
     if args.games {
-        let mut game_loader = GameLoader::new(&mut connection, args.retrosheet_dir.to_owned());
+        let mut game_loader = GameLogLoader::new(&mut connection, args.retrosheet_dir.to_owned());
         game_loader.load(&seasons, args.init)?;
     }
 
