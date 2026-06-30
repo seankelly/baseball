@@ -40,10 +40,10 @@ struct DatabaseArgs {
     #[arg(short = 'R', long)]
     register_dir: Option<path::PathBuf>,
 
-    #[arg(short = 'r', long)]
-    retrosheet_dir: Option<path::PathBuf>,
+    retrosheet_dir: path::PathBuf,
 
-    seasons: Vec<String>,
+    start_season: Option<u16>,
+    last_season: Option<u16>,
 }
 
 
@@ -1039,6 +1039,23 @@ fn load_people_files(conn: &mut Connection, register_dir: &path::Path, initializ
 }
 
 
+fn find_available_seasons(retrosheet_dir: &path::Path) -> Result<Vec<u16>, Box<dyn Error>> {
+    let mut seasons = Vec::new();
+    for entry in fs::read_dir(retrosheet_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let file_name = entry.file_name();
+            if let Ok(season) = file_name.to_str().unwrap_or("").parse::<u16>() {
+                seasons.push(season);
+            }
+        }
+    }
+    seasons.sort_unstable();
+    Ok(seasons)
+}
+
+
 fn run() -> Result<(), Box<dyn Error>> {
     let args = DatabaseArgs::parse();
 
@@ -1046,7 +1063,16 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut connection = Connection::open(database)?;
     connection.pragma_update(None, "temp_store", "memory")?;
 
-    let seasons = args.seasons;
+    // Start with seasons as integers to make filtering and sorting easy.
+    let mut seasons = find_available_seasons(&args.retrosheet_dir)?;
+    if let Some(start_season) = args.start_season {
+        seasons.retain(|season| *season >= start_season);
+    }
+    if let Some(last_season) = args.last_season {
+        seasons.retain(|season| *season <= last_season);
+    }
+    // Back to strings because it's treated as a path.
+    let seasons: Vec<_> = seasons.iter().map(|season| season.to_string()).collect();
 
     if let Some(register_path) = args.register_dir {
         load_people_files(&mut connection, &register_path, args.init);
@@ -1055,25 +1081,15 @@ fn run() -> Result<(), Box<dyn Error>> {
     create_internal_tables(&mut connection);
 
     if args.games {
-        if let Some(ref retrosheet_dir) = args.retrosheet_dir {
-            let mut game_loader = GameLoader::new(&mut connection, retrosheet_dir.to_owned());
-            game_loader.load(&seasons, args.init)?;
-        }
-        else {
-            eprintln!("Cannot load games without retrosheet directory.");
-        }
+        let mut game_loader = GameLoader::new(&mut connection, args.retrosheet_dir.to_owned());
+        game_loader.load(&seasons, args.init)?;
     }
 
     if args.gamelogs {
-        if let Some(ref retrosheet_dir) = args.retrosheet_dir {
-            let mut gamelogs = PlayerGamelogLoader::new(&mut connection, retrosheet_dir.to_owned());
-            gamelogs.load(&seasons, args.init)?;
-            if args.count_career_games {
-                gamelogs.order_career_games(&seasons)?;
-            }
-        }
-        else {
-            eprintln!("Cannot load gamelogs without retrosheet directory.");
+        let mut gamelogs = PlayerGamelogLoader::new(&mut connection, args.retrosheet_dir.to_owned());
+        gamelogs.load(&seasons, args.init)?;
+        if args.count_career_games {
+            gamelogs.order_career_games(&seasons)?;
         }
     }
 
