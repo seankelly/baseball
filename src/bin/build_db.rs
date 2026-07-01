@@ -18,6 +18,7 @@ use baseball_tools::internals::Guts;
 use clap::Parser;
 use csv::ReaderBuilder;
 use rusqlite::{Connection, Result, Transaction, named_params};
+use tracing::debug;
 
 
 #[derive(Parser)]
@@ -27,15 +28,6 @@ struct DatabaseArgs {
 
     #[arg(short, long)]
     init: bool,
-
-    #[arg(short = 'G', long)]
-    gamelogs: bool,
-
-    #[arg(long)]
-    count_career_games: bool,
-
-    #[arg(short, long)]
-    games: bool,
 
     #[arg(short = 'R', long)]
     register_dir: Option<path::PathBuf>,
@@ -53,7 +45,7 @@ struct GameLogLoader<'a> {
     batting_career_games: HashMap<String, u16>,
     fielding_career_games: HashMap<String, u16>,
     pitching_career_games: HashMap<String, u16>,
-    game_date: HashMap<String, chrono::NaiveDate>,
+    game_ordering: HashMap<TeamGameLogKey, TeamGameLogValue>,
 }
 
 
@@ -65,15 +57,48 @@ impl<'a> GameLogLoader<'a> {
             batting_career_games: HashMap::new(),
             fielding_career_games: HashMap::new(),
             pitching_career_games: HashMap::new(),
-            game_date: HashMap::new(),
+            game_ordering: HashMap::new(),
         }
     }
 
     // SQL interaction section.
-    fn create_games_table(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut tx = self.conn.transaction().expect("Could not create transaction");
+    fn create_tables(&mut self) -> Result<(), Box<dyn Error>> {
+        println!("Creating game log tables");
+        let mut tx = self.conn.transaction()?;
         games::GameLog::create_table(&mut tx)?;
+        player::BattingGamelog::create_table(&mut tx)?;
+        player::FieldingGamelog::create_table(&mut tx)?;
+        player::PitchingGamelog::create_table(&mut tx)?;
         tx.commit()?;
+        Ok(())
+    }
+
+    fn create_indexes(&mut self) -> Result<(), Box<dyn Error>> {
+        println!("Creating game indexes");
+        self.conn.execute_batch(
+            "
+            CREATE INDEX games_game_idx ON games (game_id);
+            CREATE INDEX games_date_idx ON games (date);
+            CREATE INDEX games_year_idx ON games (strftime('%Y', date));
+            CREATE INDEX games_away_idx ON games (visitor_team);
+            CREATE INDEX games_home_idx ON games (home_team);
+            "
+        )?;
+
+        println!("Creating gamelog indexes");
+        self.conn.execute_batch(
+            "
+            CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
+            CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
+            CREATE INDEX batting_gamelogs_team_idx ON batting_gamelogs (team_id);
+            CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
+            CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
+            CREATE INDEX fielding_gamelogs_team_idx ON fielding_gamelogs (team_id);
+            CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
+            CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
+            CREATE INDEX pitching_gamelogs_team_idx ON pitching_gamelogs (team_id);
+            "
+        )?;
         Ok(())
     }
 
@@ -99,7 +124,7 @@ impl<'a> GameLogLoader<'a> {
         Ok(())
     }
 
-    fn load_season_gamelog(&self, season: &String) -> Result<Vec<games::GameLog>, Box<dyn Error>> {
+    fn load_season_gamelog(&self, season: &str) -> Result<Vec<games::GameLog>, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
         // Chadwick's Retrosheet seasons either have a GLYYYY.TXT or glYYYY.txt file.
         let gl_file_names = [format!("GL{}.TXT", season), format!("gl{}.txt", season)];
@@ -132,57 +157,313 @@ impl<'a> GameLogLoader<'a> {
         Ok(games)
     }
 
-    fn load(&mut self, seasons: &[String], initialize: bool) -> Result<(), Box<dyn Error>> {
-        if initialize {
-            println!("Creating games tables");
-            self.create_games_table()?;
-        }
+    fn load_team_games(&mut self, season: &str) -> Result<HashSet<String>, Box<dyn Error>> {
+        println!("Loading games from {} season", season);
+        let games = self.load_season_gamelog(season)?;
+        debug!(games = games.len(), "Loaded games");
+        // Iterate one more time through every pitching game to calculate the league ERA and the
+        // unscaled FIP values to get the FIP constant for this season. Additionally, build the
+        // map of (game, team) IDs to (date, team game number) for the player game logs.
+        let mut league_stats = PitcherStats::new_with_fip(0.0);
+        // This tracks all of the games to check if for any missing games when loading the player
+        // game logs.
+        let mut game_ids = HashSet::with_capacity(games.len());
+        // Purge any existing games from past seasons because they aren't necessary. Then reserve
+        // space for the expected number of games.
+        self.game_ordering.clear();
+        self.game_ordering.reserve(games.len() * 2);
+        for game in &games {
+            league_stats.add_team_gamelog(game);
+            game_ids.insert(game.game_id.to_owned());
 
-        for season in seasons {
-            println!("Loading games from {} season", season);
-            let games = self.load_season_gamelog(season)?;
-            println!("Found {} games", games.len());
-            // Iterate one more time through every pitching game to calculate the league ERA and the
-            // unscaled FIP values to get the FIP constant for this season. Additionally, build the
-            // map of game ID to game date to allow sorting of player games.
-            let mut league_stats = PitcherStats::new_with_fip(0.0);
-            for game in &games {
-                league_stats.add_team_gamelog(game);
-                self.game_date.insert(game.game_id.to_owned(), game.date);
+            // Map home team game and team ID to the date and team game number.
+            let home_team = TeamGameLogKey {
+                game_id: game.game_id.to_owned(),
+                team_id: game.home_team.to_owned(),
+            };
+            let home_team_value = TeamGameLogValue {
+                date: game.date,
+                team_game_number: game.home_team_game_number,
+            };
+            self.game_ordering.insert(home_team, home_team_value);
+
+            // Do the same mapping for the visitor team.
+            let visitor_team = TeamGameLogKey {
+                game_id: game.game_id.to_owned(),
+                team_id: game.visitor_team.to_owned(),
+            };
+            let visitor_team_value = TeamGameLogValue {
+                date: game.date,
+                team_game_number: game.visitor_team_game_number,
+            };
+            self.game_ordering.insert(visitor_team, visitor_team_value);
+        }
+        let league_fip_constant = league_stats.era() - league_stats.fip();
+        println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
+        let season_numeric = season.parse::<u16>()?;
+        let mut guts = Guts::new(season_numeric);
+        guts.fip_constant = league_fip_constant;
+
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        update_fip_constant(&tx, &guts)?;
+        Self::insert_games(&tx, &games)?;
+        tx.commit().expect("Failed to commit transaction");
+
+        Ok(game_ids)
+    }
+
+    // Player section of loading game logs.
+    fn load_season_boxscores(&self, season: &str, event_files: bool) -> Result<ChildStdout, Box<dyn Error>> {
+        let season_dir = self.retrosheet_dir.join(season);
+        let mut cwbox = Command::new("cwbox");
+        cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
+        if event_files {
+            cwbox.args(find_event_files(&season_dir)?);
+        }
+        else {
+            cwbox.args(find_boxscore_files(&season_dir)?);
+        }
+        let command = cwbox.stdin(Stdio::null()).stdout(Stdio::piped());
+        match command.spawn() {
+            Ok(mut child) => {
+                let stdout = child.stdout.take().expect("cwbox stdout handle not available");
+                Ok(stdout)
             }
-            let league_fip_constant = league_stats.era() - league_stats.fip();
-            println!("Season {} ERA: {}, FIP constant: {}", season, league_stats.era(), league_fip_constant);
-            let season_numeric = season.parse::<u16>()?;
-            let mut guts = Guts::new(season_numeric);
-            guts.fip_constant = league_fip_constant;
-
-            let tx = self.conn.transaction().expect("Could not create transaction");
-            update_fip_constant(&tx, &guts)?;
-            Self::insert_games(&tx, &games)?;
-            tx.commit().expect("Failed to commit transaction");
+            Err(err) => {
+                Err(Box::new(err))
+            }
         }
+    }
 
-        if initialize {
-            println!("Creating game indexes");
-            self.conn.execute_batch(
-                "
-                CREATE INDEX games_game_idx ON games (game_id);
-                CREATE INDEX games_date_idx ON games (date);
-                CREATE INDEX games_year_idx ON games (strftime('%Y', date));
-                CREATE INDEX games_away_idx ON games (visitor_team);
-                CREATE INDEX games_home_idx ON games (home_team);
-                "
-            )?;
+    fn dated_gamelog_cmp<T: player::PlayerGamelog>(a: &DatedPlayerGamelogs<T>, b: &DatedPlayerGamelogs<T>) -> cmp::Ordering {
+        let player_cmp = a.0.player_id().cmp(b.0.player_id());
+        match player_cmp {
+            cmp::Ordering::Equal => {},
+            _ => { return player_cmp; }
         }
+        let date_cmp = a.1.cmp(&b.1);
+        match date_cmp {
+            cmp::Ordering::Equal => {},
+            _ => { return date_cmp; }
+        }
+        a.0.team_id().cmp(b.0.team_id())
+    }
+
+    fn order_dated_gamelogs<T, U>(&self, season: i32, chadwick_gl: Vec<T>) -> Vec<U>
+        where U: player::PlayerGamelog + std::convert::From<T>
+    {
+        let game_count = chadwick_gl.len();
+        let default_value = TeamGameLogValue {
+            date: chrono::NaiveDate::from_ymd_opt(season, 1, 1).unwrap(),
+            team_game_number: 0,
+        };
+        let mut internal_gamelogs: Vec<DatedPlayerGamelogs<U>> = Vec::with_capacity(game_count);
+        for gl in chadwick_gl.into_iter() {
+            let mut new_gl: U = gl.into();
+            let key = TeamGameLogKey {
+                game_id: new_gl.game_id().to_string(),
+                team_id: new_gl.team_id().to_string(),
+            };
+            // Need date and team game number.
+            let value = self.game_ordering.get(&key).unwrap_or(&default_value);
+            new_gl.set_team_game(value.team_game_number);
+            internal_gamelogs.push((new_gl, value.date));
+        }
+        internal_gamelogs.sort_unstable_by(Self::dated_gamelog_cmp);
+        internal_gamelogs.into_iter().map(|entry| entry.0).collect()
+    }
+
+    fn order_batting_gamelogs(mut gamelogs: Vec<player::BattingGamelog>, career_offset: &mut HashMap<String, u16>) -> Vec<player::BattingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
+        let mut slash_line = BattingSlashLine::new();
+        // Start at zero because whether the current game is the same as the previous is checked
+        // before setting the player's season game count.
+        let mut season_game = 0;
+        let mut offset = 0;
+        for gl in gamelogs.iter_mut() {
+            if player == gl.player_id {
+                if last_game != gl.game_id {
+                    season_game += 1;
+                }
+                slash_line.add_gamelog(gl);
+                let stats = slash_line.slash_line();
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+                gl.avg = stats.0;
+                gl.obp = stats.1;
+                gl.slg = stats.2;
+            }
+            else {
+                // Save the new career games played for that player.
+                if season_game > 0 && player.is_empty() {
+                    career_offset.insert(player.to_owned(), offset + season_game);
+                }
+                player = gl.player_id.as_str();
+                slash_line.clear();
+                slash_line.add_gamelog(gl);
+                let stats = slash_line.slash_line();
+                season_game = 1;
+                offset = career_offset.get(player).copied().unwrap_or(0);
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+                gl.avg = stats.0;
+                gl.obp = stats.1;
+                gl.slg = stats.2;
+            }
+            last_game = gl.game_id.as_str();
+        }
+        gamelogs
+    }
+
+    fn order_fielding_gamelogs(mut gamelogs: Vec<player::FieldingGamelog>, career_offset: &mut HashMap<String, u16>) -> Vec<player::FieldingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
+        let mut season_game = 0;
+        let mut offset = 0;
+        for gl in gamelogs.iter_mut() {
+            if player == gl.player_id {
+                if last_game != gl.game_id {
+                    season_game += 1;
+                }
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+            }
+            else {
+                if season_game > 0 && player.is_empty() {
+                    career_offset.insert(player.to_owned(), offset + season_game);
+                }
+                player = gl.player_id.as_str();
+                season_game = 1;
+                offset = career_offset.get(player).copied().unwrap_or(0);
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+            }
+            last_game = gl.game_id.as_str();
+        }
+        gamelogs
+    }
+
+    fn order_pitching_gamelogs(mut gamelogs: Vec<player::PitchingGamelog>, career_offset: &mut HashMap<String, u16>, fip_constant: f32) -> Vec<player::PitchingGamelog> {
+        let mut player = "";
+        let mut last_game = "";
+        let mut pitcher_stats = PitcherStats::new_with_fip(fip_constant);
+        let mut season_game = 0;
+        let mut offset = 0;
+        for gl in gamelogs.iter_mut() {
+            if player == gl.player_id {
+                if last_game != gl.game_id {
+                    season_game += 1;
+                }
+                pitcher_stats.add_gamelog(gl);
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+                gl.era = pitcher_stats.era();
+                gl.fip = pitcher_stats.fip();
+            }
+            else {
+                if season_game > 0 && player.is_empty() {
+                    career_offset.insert(player.to_owned(), offset + season_game);
+                }
+                player = gl.player_id.as_str();
+                pitcher_stats.clear();
+                pitcher_stats.add_gamelog(gl);
+                season_game = 1;
+                offset = career_offset.get(player).copied().unwrap_or(0);
+                gl.season_game = season_game;
+                gl.career_game = offset + season_game;
+                gl.era = pitcher_stats.era();
+                gl.fip = pitcher_stats.fip();
+            }
+            last_game = gl.game_id.as_str();
+        }
+        gamelogs
+    }
+
+    fn load_player_games(&mut self, season: &str, game_ids: &HashSet<String>) -> Result<(), Box<dyn Error>> {
+        let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = self.load_player_game_logs(season, game_ids)?;
+
+        // Transform Chadwick gamelogs into internal version for the database and sort to allow
+        // marking which game number in the season this is for a player.
+        let season_numeric = season.parse::<u16>()?;
+        let fip_constant = get_fip_constant(self.conn, season_numeric)?.unwrap_or_default();
+        let batting_gamelogs = Self::order_batting_gamelogs(
+            self.order_dated_gamelogs(season_numeric.into(), batting_gamelogs),
+            &mut self.batting_career_games
+        );
+        let fielding_gamelogs = Self::order_fielding_gamelogs(
+            self.order_dated_gamelogs(season_numeric.into(), fielding_gamelogs),
+            &mut self.fielding_career_games
+        );
+        let pitching_gamelogs = Self::order_pitching_gamelogs(
+            self.order_dated_gamelogs(season_numeric.into(), pitching_gamelogs),
+            &mut self.pitching_career_games,
+            fip_constant
+        );
+
+        let tx = self.conn.transaction().expect("Could not create transaction");
+        Self::insert_games(&tx, &batting_gamelogs)?;
+        Self::insert_games(&tx, &fielding_gamelogs)?;
+        Self::insert_games(&tx, &pitching_gamelogs)?;
+        tx.commit().expect("Failed to commit transaction");
 
         Ok(())
     }
-}
 
+    fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<PlayerGameLogs, Box<dyn Error>> {
+        // Load boxscores from the event files to get more accurate data.
+        println!("Loading player game logs from {} season", season);
+        let stdout = self.load_season_boxscores(season, true)?;
+        let (mut batting_gamelogs, mut fielding_gamelogs, mut pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
 
-struct PlayerGamelogLoader<'a> {
-    conn: &'a mut Connection,
-    retrosheet_dir: path::PathBuf,
+        // Collect all games found from loading the event files and then check the overall list
+        // against what was found to detect any missing games.
+        let mut found_game_ids = HashSet::with_capacity(game_ids.len());
+        for game_log in &pitching_gamelogs {
+            found_game_ids.insert(game_log.game_id.clone());
+        }
+
+        let mut missing_game_ids = HashSet::new();
+        for game_id in game_ids {
+            if !found_game_ids.contains(game_id) {
+                missing_game_ids.insert(game_id.clone());
+            }
+        }
+
+        // Missing some games from the event files. Load the box score event files to get the
+        // missing games.
+        if !missing_game_ids.is_empty() {
+            println!("Missing {} games from event files. Loading box score files.", missing_game_ids.len());
+            let stdout = self.load_season_boxscores(season, false)?;
+            let (be_batting_logs, be_fielding_logs, be_pitching_logs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
+
+            for game_log in be_batting_logs.into_iter() {
+                if missing_game_ids.contains(&game_log.game_id) {
+                    batting_gamelogs.push(game_log);
+                }
+            }
+
+            for game_log in be_fielding_logs.into_iter() {
+                if missing_game_ids.contains(&game_log.game_id) {
+                    fielding_gamelogs.push(game_log);
+                }
+            }
+
+            for game_log in be_pitching_logs.into_iter() {
+                if missing_game_ids.contains(&game_log.game_id) {
+                    pitching_gamelogs.push(game_log);
+                }
+            }
+        }
+
+        Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
+    }
+
+    fn load(&mut self, season: &str) -> Result<(), Box<dyn Error>> {
+        let game_ids = self.load_team_games(season)?;
+        self.load_player_games(season, &game_ids)?;
+        Ok(())
+    }
 }
 
 
@@ -221,421 +502,6 @@ struct TeamGameLogKey {
 struct TeamGameLogValue {
     date: chrono::NaiveDate,
     team_game_number: u16,
-}
-
-
-#[derive(Eq, PartialEq)]
-struct CareerGame {
-    player_id: String,
-    game_id: String,
-    date: chrono::NaiveDate,
-}
-
-
-impl<'a> PlayerGamelogLoader<'a> {
-    fn new(conn: &'a mut Connection, retrosheet_dir: path::PathBuf) -> Self {
-        Self {
-            conn,
-            retrosheet_dir
-        }
-    }
-
-    fn insert_player_game_logs<T: Sql>(tx: &Transaction, gamelogs: &Vec<T>) -> Result<(), Box<dyn Error>> {
-        let mut insert_sql = String::with_capacity(250);
-        insert_sql.push_str("INSERT INTO ");
-        insert_sql.push_str(T::table_name());
-        insert_sql.push_str(" VALUES (");
-        for (idx, name) in T::column_names().iter().enumerate() {
-            if idx > 0 {
-                insert_sql.push_str(", ");
-            }
-            insert_sql.push(':');
-            insert_sql.push_str(name);
-        }
-        insert_sql.push(')');
-
-        let mut insert = tx.prepare(&insert_sql)?;
-        for game in gamelogs {
-            game.write_row(&mut insert)?;
-        }
-
-        Ok(())
-    }
-
-    fn load_team_gamelogs(&self, season: &str) -> Result<(HashSet<String>, HashMap<TeamGameLogKey, TeamGameLogValue>), Box<dyn Error>> {
-        let mut statement = self.conn.prepare(
-            "SELECT game_id, date, visitor_team, visitor_team_game_number, home_team, home_team_game_number
-            FROM games
-            WHERE strftime('%Y', games.date) = :season"
-        )?;
-        let mut game_ids = HashSet::new();
-        let mut games = HashMap::new();
-        let mut rows = statement.query(&[(":season", season)])?;
-        while let Some(row) = rows.next()? {
-            let game_id: String = row.get(0)?;
-            game_ids.insert(game_id.clone());
-            let date: chrono::NaiveDate = row.get(1)?;
-            let home_team = TeamGameLogKey {
-                game_id: game_id.clone(),
-                team_id: row.get(4)?,
-            };
-            let home_team_value = TeamGameLogValue {
-                date,
-                team_game_number: row.get(5)?,
-            };
-            games.insert(home_team, home_team_value);
-
-            let visitor_team = TeamGameLogKey {
-                game_id: game_id.clone(),
-                team_id: row.get(2)?,
-            };
-            let visitor_team_value = TeamGameLogValue {
-                date,
-                team_game_number: row.get(3)?,
-            };
-            games.insert(visitor_team, visitor_team_value);
-        }
-        Ok((game_ids, games))
-    }
-
-    fn load_season_boxscores(&self, season: &str, event_files: bool) -> Result<ChildStdout, Box<dyn Error>> {
-        let season_dir = self.retrosheet_dir.join(season);
-        let mut cwbox = Command::new("cwbox");
-        cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
-        if event_files {
-            cwbox.args(find_event_files(&season_dir)?);
-        }
-        else {
-            cwbox.args(find_boxscore_files(&season_dir)?);
-        }
-        let command = cwbox.stdin(Stdio::null()).stdout(Stdio::piped());
-        match command.spawn() {
-            Ok(mut child) => {
-                let stdout = child.stdout.take().expect("cwbox stdout handle not available");
-                Ok(stdout)
-            }
-            Err(err) => {
-                Err(Box::new(err))
-            }
-        }
-    }
-
-    fn dated_gamelog_cmp<T: player::PlayerGamelog>(a: &DatedPlayerGamelogs<T>, b: &DatedPlayerGamelogs<T>) -> cmp::Ordering {
-        let player_cmp = a.0.player_id().cmp(b.0.player_id());
-        match player_cmp {
-            cmp::Ordering::Equal => {},
-            _ => { return player_cmp; }
-        }
-        let date_cmp = a.1.cmp(&b.1);
-        match date_cmp {
-            cmp::Ordering::Equal => {},
-            _ => { return date_cmp; }
-        }
-        a.0.team_id().cmp(b.0.team_id())
-    }
-
-    fn order_dated_gamelogs<T, U>(season: i32, chadwick_gl: Vec<T>, games: &HashMap<TeamGameLogKey, TeamGameLogValue>) -> Vec<U>
-        where U: player::PlayerGamelog + std::convert::From<T>
-    {
-        let game_count = chadwick_gl.len();
-        let default_value = TeamGameLogValue {
-            date: chrono::NaiveDate::from_ymd_opt(season, 1, 1).unwrap(),
-            team_game_number: 0,
-        };
-        let mut internal_gamelogs: Vec<DatedPlayerGamelogs<U>> = Vec::with_capacity(game_count);
-        for gl in chadwick_gl.into_iter() {
-            let mut new_gl: U = gl.into();
-            let key = TeamGameLogKey {
-                game_id: new_gl.game_id().to_string(),
-                team_id: new_gl.team_id().to_string(),
-            };
-            // Need date and team game number.
-            let value = games.get(&key).unwrap_or(&default_value);
-            new_gl.set_team_game(value.team_game_number);
-            internal_gamelogs.push((new_gl, value.date));
-        }
-        internal_gamelogs.sort_unstable_by(Self::dated_gamelog_cmp);
-        internal_gamelogs.into_iter().map(|entry| entry.0).collect()
-    }
-
-    fn order_batting_gamelogs(mut gamelogs: Vec<player::BattingGamelog>) -> Vec<player::BattingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
-        let mut slash_line = BattingSlashLine::new();
-        // Start at zero because whether the current game is the same as the previous is check
-        // before setting the player's season game count.
-        let mut season_game = 0;
-        for gl in gamelogs.iter_mut() {
-            if last_game != gl.game_id {
-                season_game += 1;
-            }
-            if player == gl.player_id {
-                slash_line.add_gamelog(gl);
-                let stats = slash_line.slash_line();
-                gl.season_game = season_game;
-                gl.avg = stats.0;
-                gl.obp = stats.1;
-                gl.slg = stats.2;
-            }
-            else {
-                player = gl.player_id.as_str();
-                slash_line.clear();
-                slash_line.add_gamelog(gl);
-                let stats = slash_line.slash_line();
-                gl.season_game = 1;
-                gl.avg = stats.0;
-                gl.obp = stats.1;
-                gl.slg = stats.2;
-                season_game = 1;
-            }
-            last_game = gl.game_id.as_str();
-        }
-        gamelogs
-    }
-
-    fn order_fielding_gamelogs(mut gamelogs: Vec<player::FieldingGamelog>) -> Vec<player::FieldingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
-        let mut season_game = 0;
-        for gl in gamelogs.iter_mut() {
-            if last_game != gl.game_id {
-                season_game += 1;
-            }
-            if player == gl.player_id {
-                gl.season_game = season_game;
-            }
-            else {
-                player = gl.player_id.as_str();
-                gl.season_game = 1;
-                season_game = 1;
-            }
-            last_game = gl.game_id.as_str();
-        }
-        gamelogs
-    }
-
-    fn order_pitching_gamelogs(mut gamelogs: Vec<player::PitchingGamelog>, fip_constant: f32) -> Vec<player::PitchingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
-        let mut pitcher_stats = PitcherStats::new_with_fip(fip_constant);
-        let mut season_game = 0;
-        for gl in gamelogs.iter_mut() {
-            if last_game != gl.game_id {
-                season_game += 1;
-            }
-            if player == gl.player_id {
-                pitcher_stats.add_gamelog(gl);
-                gl.season_game = season_game;
-                gl.era = pitcher_stats.era();
-                gl.fip = pitcher_stats.fip();
-            }
-            else {
-                player = gl.player_id.as_str();
-                pitcher_stats.clear();
-                pitcher_stats.add_gamelog(gl);
-                gl.season_game = 1;
-                gl.era = pitcher_stats.era();
-                gl.fip = pitcher_stats.fip();
-                season_game = 1;
-            }
-            last_game = gl.game_id.as_str();
-        }
-        gamelogs
-    }
-
-    fn load(&mut self, seasons: &Vec<String>, initialize: bool) -> Result<(), Box<dyn Error>> {
-        if initialize {
-            println!("Creating gamelog tables");
-            let mut tx = self.conn.transaction()?;
-            player::BattingGamelog::create_table(&mut tx)?;
-            player::FieldingGamelog::create_table(&mut tx)?;
-            player::PitchingGamelog::create_table(&mut tx)?;
-            tx.commit()?;
-        }
-
-        for season in seasons {
-            // Load team gamelogs.
-            println!("Loading team game logs from {} season", season);
-            let (game_ids, team_games) = self.load_team_gamelogs(season)?;
-            let (batting_gamelogs, fielding_gamelogs, pitching_gamelogs) = self.load_player_game_logs(season, &game_ids)?;
-
-            // Transform Chadwick gamelogs into internal version for the database and sort to allow
-            // marking which game number in the season this is for a player.
-            let season_numeric = season.parse::<u16>()?;
-            let fip_constant = get_fip_constant(self.conn, season_numeric)?.unwrap_or_default();
-            let batting_gamelogs = Self::order_batting_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), batting_gamelogs, &team_games));
-            let fielding_gamelogs = Self::order_fielding_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), fielding_gamelogs, &team_games));
-            let pitching_gamelogs = Self::order_pitching_gamelogs(Self::order_dated_gamelogs(season_numeric.into(), pitching_gamelogs, &team_games), fip_constant);
-
-            let tx = self.conn.transaction().expect("Could not create transaction");
-            Self::insert_player_game_logs(&tx, &batting_gamelogs)?;
-            Self::insert_player_game_logs(&tx, &fielding_gamelogs)?;
-            Self::insert_player_game_logs(&tx, &pitching_gamelogs)?;
-            tx.commit().expect("Failed to commit transaction");
-        }
-
-        if initialize {
-            println!("Creating gamelog indexes");
-            self.conn.execute_batch(
-                "
-                CREATE INDEX batting_gamelogs_player_idx ON batting_gamelogs (player_id);
-                CREATE INDEX batting_gamelogs_game_idx ON batting_gamelogs (game_id);
-                CREATE INDEX batting_gamelogs_team_idx ON batting_gamelogs (team_id);
-                CREATE INDEX fielding_gamelogs_player_idx ON fielding_gamelogs (player_id);
-                CREATE INDEX fielding_gamelogs_game_idx ON fielding_gamelogs (game_id);
-                CREATE INDEX fielding_gamelogs_team_idx ON fielding_gamelogs (team_id);
-                CREATE INDEX pitching_gamelogs_player_idx ON pitching_gamelogs (player_id);
-                CREATE INDEX pitching_gamelogs_game_idx ON pitching_gamelogs (game_id);
-                CREATE INDEX pitching_gamelogs_team_idx ON pitching_gamelogs (team_id);
-                "
-            )?;
-        }
-
-        Ok(())
-    }
-
-    fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<PlayerGameLogs, Box<dyn Error>> {
-            // Load boxscores from the event files to get more accurate data.
-            println!("Loading player game logs from {} season", season);
-            let stdout = self.load_season_boxscores(season, true)?;
-            let (mut batting_gamelogs, mut fielding_gamelogs, mut pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
-
-            // Collect all games found from loading the event files and then check the overall list
-            // against what was found to detect any missing games.
-            let mut found_game_ids = HashSet::with_capacity(game_ids.len());
-            for game_log in &pitching_gamelogs {
-                found_game_ids.insert(game_log.game_id.clone());
-            }
-
-            let mut missing_game_ids = HashSet::new();
-            for game_id in game_ids {
-                if !found_game_ids.contains(game_id) {
-                    missing_game_ids.insert(game_id.clone());
-                }
-            }
-
-            // Missing some games from the event files. Load the box score event files to get the
-            // missing games.
-            if !missing_game_ids.is_empty() {
-                println!("Missing {} games from event files. Loading box score files.", missing_game_ids.len());
-                let stdout = self.load_season_boxscores(season, false)?;
-                let (be_batting_logs, be_fielding_logs, be_pitching_logs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
-
-                for game_log in be_batting_logs.into_iter() {
-                    if missing_game_ids.contains(&game_log.game_id) {
-                        batting_gamelogs.push(game_log);
-                    }
-                }
-
-                for game_log in be_fielding_logs.into_iter() {
-                    if missing_game_ids.contains(&game_log.game_id) {
-                        fielding_gamelogs.push(game_log);
-                    }
-                }
-
-                for game_log in be_pitching_logs.into_iter() {
-                    if missing_game_ids.contains(&game_log.game_id) {
-                        pitching_gamelogs.push(game_log);
-                    }
-                }
-            }
-
-            Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
-    }
-
-    fn order_career_games(&mut self, seasons: &[String]) -> Result<(), Box<dyn Error>> {
-        if seasons.is_empty() {
-            return Ok(());
-        }
-        // Convert the seasons to integers to ensure a consistent sort.
-        let mut seasons: Vec<u16> = seasons.iter().flat_map(|s| s.parse::<u16>()).collect();
-        seasons.sort_unstable();
-        let oldest = seasons.first().expect("Expected a season");
-        let newest = seasons.last().expect("Expected a season");
-        let start_date = format!("{}-01-01", oldest);
-        let end_date = format!("{}-12-31", newest);
-
-        self.order_table("batting_gamelogs", &start_date, &end_date)?;
-        self.order_table("fielding_gamelogs", &start_date, &end_date)?;
-        self.order_table("pitching_gamelogs", &start_date, &end_date)?;
-
-        Ok(())
-    }
-
-    fn order_table(&mut self, table: &str, start_date: &str, end_date: &str) -> Result<(), Box<dyn Error>> {
-        let tx = self.conn.transaction()?;
-        // Find all players affected by these seasons.
-        let sql = format!(
-            "SELECT DISTINCT(player_id)
-            FROM {} AS gl JOIN games ON gl.game_id = games.game_id
-            WHERE games.date BETWEEN :start AND :end",
-            table);
-        let mut statement = tx.prepare(&sql)?;
-        let players: Vec<String> = statement.query_map(
-            &[(":start", start_date), (":end", end_date)],
-            |row| row.get(0)
-        )?
-            .flatten()
-            .collect();
-        drop(statement);
-
-        // Update those players.
-        println!("Ordering table {} with {} players", table, players.len());
-
-        let select_player = format!(
-            "SELECT gl.game_id, games.date
-            FROM {} AS gl JOIN games ON gl.game_id = games.game_id
-            WHERE player_id = :player",
-            table);
-        let update_player = format!(
-            "UPDATE {} SET career_game = :game_number
-            WHERE player_id = :player AND game_id = :game_id",
-            table);
-        let mut select_statement = tx.prepare(&select_player)?;
-        let mut update_statement = tx.prepare(&update_player)?;
-        let mut games_updated = 0;
-        for player_id in &players {
-            let mut games: Vec<CareerGame> = select_statement.query_map(
-                &[(":player", player_id)],
-                |row| Ok(CareerGame {
-                    player_id: player_id.clone(),
-                    game_id: row.get(0)?,
-                    date: row.get(1)?,
-                })
-            )?
-                .flatten()
-                .collect();
-            games.sort_unstable();
-
-            // The fielding game log table will have a row for every position a player plays in a
-            // game. Each career game should only increment for different games so update all
-            // matching (player, game) options (even if they have a different team) and skip to the
-            // next unique game.
-            let mut game_number = 1;
-            let mut last_game = "";
-            for game in games.iter() {
-                if game.game_id == last_game {
-                    continue;
-                }
-                update_statement.execute(
-                    named_params! {
-                        ":game_number": game_number,
-                        ":player": &player_id,
-                        ":game_id": &game.game_id,
-                    }
-                )?;
-                game_number += 1;
-                games_updated += 1;
-                last_game = game.game_id.as_str();
-            }
-        }
-        drop(select_statement);
-        drop(update_statement);
-        tx.commit().expect("Failed to commit transaction");
-        println!("Updated {} games for {}", games_updated, table);
-
-        Ok(())
-    }
 }
 
 
@@ -821,30 +687,6 @@ impl PitcherStats {
         else {
             f32::NAN
         }
-    }
-}
-
-impl cmp::PartialOrd for CareerGame {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl cmp::Ord for CareerGame {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        let cmp = self.date.cmp(&other.date);
-        match cmp {
-            cmp::Ordering::Equal => {},
-            _ => return cmp,
-        };
-
-        let cmp = self.player_id.cmp(&other.player_id);
-        match cmp {
-            cmp::Ordering::Equal => {},
-            _ => return cmp,
-        };
-
-        self.game_id.cmp(&other.game_id)
     }
 }
 
@@ -1091,17 +933,15 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     create_internal_tables(&mut connection);
 
-    if args.games {
-        let mut game_loader = GameLogLoader::new(&mut connection, args.retrosheet_dir.to_owned());
-        game_loader.load(&seasons, args.init)?;
+    let mut game_loader = GameLogLoader::new(&mut connection, args.retrosheet_dir.to_owned());
+    if args.init {
+        game_loader.create_tables()?;
     }
-
-    if args.gamelogs {
-        let mut gamelogs = PlayerGamelogLoader::new(&mut connection, args.retrosheet_dir.to_owned());
-        gamelogs.load(&seasons, args.init)?;
-        if args.count_career_games {
-            gamelogs.order_career_games(&seasons)?;
-        }
+    for season in &seasons {
+        game_loader.load(season)?;
+    }
+    if args.init {
+        game_loader.create_indexes()?;
     }
 
     // If initializing then tables changed and indexes were created. Run PRAGMA optimize to have
