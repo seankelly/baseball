@@ -1,12 +1,206 @@
-use std::borrow::Borrow;
 use std::default::Default;
 use std::io;
 use std::str;
 
-use quick_xml::events::{BytesStart, Event};
-use quick_xml::reader::Reader;
+use csv::ReaderBuilder;
 use serde::Serialize;
 use serde_derive::Deserialize;
+
+use crate::chadwick::bool_from_int;
+
+
+#[derive(Deserialize)]
+#[allow(non_snake_case)]
+pub struct Cwdaily {
+    pub game_id: String,
+    pub game_date: String,
+    pub game_number: u8,
+    pub appearance_date: String,
+    pub team_id: String,
+    pub player_id: String,
+    pub batting_order_slot: u8,
+    pub batting_order_sequence: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub home_team: bool,
+    pub opponent_id: String,
+    pub park_id: String,
+    // Batting fields.
+    #[serde(deserialize_with = "bool_from_int")]
+    pub b_g: bool,
+    pub b_pa: Option<u8>,
+    pub b_ab: u8,
+    pub b_r: u8,
+    pub b_h: u8,
+    pub b_tb: Option<u8>,
+    pub b_2b: Option<u8>,
+    pub b_3b: Option<u8>,
+    pub b_hr: Option<u8>,
+    /// Grand slams.
+    pub b_hr4: Option<u8>,
+    pub b_rbi: Option<u8>,
+    pub b_gwrbi: Option<u8>,
+    pub b_bb: Option<u8>,
+    pub b_ibb: Option<u8>,
+    pub b_so: Option<u8>,
+    pub b_gdp: Option<u8>,
+    pub b_hbp: Option<u8>,
+    pub b_sh: u8,
+    pub b_sf: Option<u8>,
+    pub b_sb: Option<u8>,
+    pub b_cs: Option<u8>,
+    pub b_xi: Option<u8>,
+    pub b_g_dh: u8,
+    pub b_g_ph: u8,
+    pub b_g_pr: u8,
+    // Pitching fields.
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_gs: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_cg: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_sho: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_gf: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_w: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_l: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub p_sv: bool,
+    pub p_outs: u8,
+    pub p_tbf: Option<u8>,
+    pub p_ab: Option<u8>,
+    pub p_r: u8,
+    pub p_er: Option<u8>,
+    pub p_h: u8,
+    pub p_tb: Option<u8>,
+    pub p_2b: Option<u8>,
+    pub p_3b: Option<u8>,
+    pub p_hr: Option<u8>,
+    /// Grand slams.
+    pub p_hr4: u8,
+    pub p_bb: Option<u8>,
+    pub p_ibb: Option<u8>,
+    pub p_so: Option<u8>,
+    pub p_gdp: Option<u8>,
+    pub p_hbp: u8,
+    pub p_sh: Option<u8>,
+    pub p_sf: Option<u8>,
+    pub p_xi: Option<u8>,
+    pub p_wp: Option<u8>,
+    pub p_bk: u8,
+    pub p_ir: Option<u8>,
+    pub p_irs: Option<u8>,
+    pub p_go: Option<u8>,
+    pub p_ao: Option<u8>,
+    pub p_pitches: Option<u16>,
+    pub p_strikes: Option<u16>,
+    // Fielding fields.
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_p_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_p_gs: bool,
+    pub f_p_outs: Option<u8>,
+    pub f_p_tc: Option<u8>,
+    pub f_p_po: Option<u8>,
+    pub f_p_a: Option<u8>,
+    pub f_p_e: Option<u8>,
+    pub f_p_dp: u8,
+    pub f_p_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_c_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_c_gs: bool,
+    pub f_c_outs: Option<u8>,
+    pub f_c_tc: Option<u8>,
+    pub f_c_po: Option<u8>,
+    pub f_c_a: Option<u8>,
+    pub f_c_e: Option<u8>,
+    pub f_c_dp: u8,
+    pub f_c_tp: u8,
+    // Catcher have two additional fields.
+    pub f_c_pb: Option<u8>,
+    pub f_c_ci: Option<u8>,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_1b_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_1b_gs: bool,
+    pub f_1b_outs: Option<u8>,
+    pub f_1b_tc: Option<u8>,
+    pub f_1b_po: Option<u8>,
+    pub f_1b_a: Option<u8>,
+    pub f_1b_e: Option<u8>,
+    pub f_1b_dp: u8,
+    pub f_1b_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_2b_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_2b_gs: bool,
+    pub f_2b_outs: Option<u8>,
+    pub f_2b_tc: Option<u8>,
+    pub f_2b_po: Option<u8>,
+    pub f_2b_a: Option<u8>,
+    pub f_2b_e: Option<u8>,
+    pub f_2b_dp: u8,
+    pub f_2b_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_3b_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_3b_gs: bool,
+    pub f_3b_outs: Option<u8>,
+    pub f_3b_tc: Option<u8>,
+    pub f_3b_po: Option<u8>,
+    pub f_3b_a: Option<u8>,
+    pub f_3b_e: Option<u8>,
+    pub f_3b_dp: u8,
+    pub f_3b_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_ss_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_ss_gs: bool,
+    pub f_ss_outs: Option<u8>,
+    pub f_ss_tc: Option<u8>,
+    pub f_ss_po: Option<u8>,
+    pub f_ss_a: Option<u8>,
+    pub f_ss_e: Option<u8>,
+    pub f_ss_dp: u8,
+    pub f_ss_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_lf_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_lf_gs: bool,
+    pub f_lf_outs: Option<u8>,
+    pub f_lf_tc: Option<u8>,
+    pub f_lf_po: Option<u8>,
+    pub f_lf_a: Option<u8>,
+    pub f_lf_e: Option<u8>,
+    pub f_lf_dp: u8,
+    pub f_lf_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_cf_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_cf_gs: bool,
+    pub f_cf_outs: Option<u8>,
+    pub f_cf_tc: Option<u8>,
+    pub f_cf_po: Option<u8>,
+    pub f_cf_a: Option<u8>,
+    pub f_cf_e: Option<u8>,
+    pub f_cf_dp: u8,
+    pub f_cf_tp: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_rf_g: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub f_rf_gs: bool,
+    pub f_rf_outs: Option<u8>,
+    pub f_rf_tc: Option<u8>,
+    pub f_rf_po: Option<u8>,
+    pub f_rf_a: Option<u8>,
+    pub f_rf_e: Option<u8>,
+    pub f_rf_dp: u8,
+    pub f_rf_tp: u8,
+}
 
 
 #[derive(Default, Deserialize, Serialize)]
@@ -19,20 +213,21 @@ pub struct BattingGamelog {
     pub ab: u8,
     pub r: u8,
     pub h: u8,
-    pub d: u8,
-    pub t: u8,
-    pub hr: u8,
-    pub rbi: u8,
-    pub rbi2out: u8,
-    pub bb: u8,
-    pub ibb: u8,
-    pub so: u8,
-    pub gidp: u8,
-    pub hbp: u8,
+    pub tb: Option<u8>,
+    pub d: Option<u8>,
+    pub t: Option<u8>,
+    pub hr: Option<u8>,
+    pub rbi: Option<u8>,
+    pub bb: Option<u8>,
+    pub ibb: Option<u8>,
+    pub so: Option<u8>,
+    pub gidp: Option<u8>,
+    pub hbp: Option<u8>,
     pub sh: u8,
-    pub sf: u8,
-    pub sb: u8,
-    pub cs: u8,
+    pub sf: Option<u8>,
+    pub sb: Option<u8>,
+    pub cs: Option<u8>,
+    pub xi: Option<u8>,
 
     pub pos: String,
 }
@@ -45,14 +240,16 @@ pub struct FieldingGamelog {
     pub game_id: String,
     pub team_id: String,
     pub pos: u8,
-    pub o: u8,
-    pub po: u8,
-    pub a: u8,
-    pub e: u8,
+    pub gs: bool,
+    pub o: Option<u8>,
+    pub po: Option<u8>,
+    pub tc: Option<u8>,
+    pub a: Option<u8>,
+    pub e: Option<u8>,
     pub dp: u8,
     pub tp: u8,
-    pub bip: u8,
-    pub bf: u8,
+    pub pb: Option<u8>,
+    pub ci: Option<u8>,
 }
 
 
@@ -66,23 +263,26 @@ pub struct PitchingGamelog {
     pub cg: bool,
     pub sho: bool,
     pub gf: bool,
+    pub w: bool,
+    pub l: bool,
+    pub sv: bool,
     pub ipouts: u8,
-    pub ab: u8,
-    pub bf: u8,
+    pub ab: Option<u8>,
+    pub bf: Option<u8>,
     pub h: u8,
     pub r: u8,
-    pub er: u8,
-    pub hr: u8,
-    pub bb: u8,
-    pub ibb: u8,
-    pub so: u8,
-    pub wp: u8,
+    pub er: Option<u8>,
+    pub hr: Option<u8>,
+    pub bb: Option<u8>,
+    pub ibb: Option<u8>,
+    pub so: Option<u8>,
+    pub wp: Option<u8>,
     pub bk: u8,
     pub hbp: u8,
-    pub gb: u8,
-    pub fb: u8,
-    pub p: u8,
-    pub s: u8,
+    pub go: Option<u8>,
+    pub ao: Option<u8>,
+    pub p: Option<u16>,
+    pub s: Option<u16>,
     pub decision: String,
 }
 
@@ -90,287 +290,302 @@ pub struct PitchingGamelog {
 pub type PlayerGameLogs = (Vec<BattingGamelog>, Vec<FieldingGamelog>, Vec<PitchingGamelog>);
 
 
-fn attribute_to_u8(attr: &quick_xml::events::attributes::Attribute) -> u8 {
-    let attribute = str::from_utf8(attr.value.as_ref());
-    attribute.unwrap_or("0").parse::<u8>().unwrap_or_default()
-}
+impl Cwdaily {
+    pub fn split_into_game_logs(&self) -> PlayerGameLogs {
+        let mut batting_game_logs = Vec::new();
+        let fielding_game_logs = self.fielder_game_logs();
+        let mut pitching_game_logs = Vec::new();
 
-
-fn attribute_to_bool(attr: &quick_xml::events::attributes::Attribute) -> bool {
-    let attribute = str::from_utf8(attr.value.as_ref());
-    match attribute.unwrap_or("0") {
-        "0" => false,
-        "1" => true,
-        _ => false,
-    }
-}
-
-
-impl BattingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str, positions: &str) -> Self {
-        let team_id = team_id.to_owned();
-        let game_id = game_id.to_owned();
-        let player_id = player_id.to_owned();
-        let pos = positions.to_owned();
-        let mut batting = Self {
-            player_id,
-            game_id,
-            team_id,
-            pos,
-            ..Default::default()
-        };
-
-        for attribute in element.attributes() {
-            match attribute {
-                Ok(attr) => {
-                    match attr.key.local_name().as_ref() {
-                        b"ab" => { batting.ab = attribute_to_u8(&attr); }
-                        b"r" => { batting.r = attribute_to_u8(&attr); }
-                        b"h" => { batting.h = attribute_to_u8(&attr); }
-                        b"d" => { batting.d = attribute_to_u8(&attr); }
-                        b"t" => { batting.t = attribute_to_u8(&attr); }
-                        b"hr" => { batting.hr = attribute_to_u8(&attr); }
-                        b"bi" => { batting.rbi = attribute_to_u8(&attr); }
-                        b"bi2out" => { batting.rbi2out = attribute_to_u8(&attr); }
-                        b"bb" => { batting.bb = attribute_to_u8(&attr); }
-                        b"ibb" => { batting.ibb = attribute_to_u8(&attr); }
-                        b"so" => { batting.so = attribute_to_u8(&attr); }
-                        b"gdp" => { batting.gidp = attribute_to_u8(&attr); }
-                        b"hp" => { batting.hbp = attribute_to_u8(&attr); }
-                        b"sh" => { batting.sh = attribute_to_u8(&attr); }
-                        b"sf" => { batting.sf = attribute_to_u8(&attr); }
-                        b"sb" => { batting.sb = attribute_to_u8(&attr); }
-                        b"cs" => { batting.cs = attribute_to_u8(&attr); }
-                        _ => { }
-                    }
-                }
-                Err(_e) => {}
-            }
+        if self.batted() {
+            batting_game_logs.push(self.batter_game_log());
         }
 
-        // Calculate plate appearances ahead of time for simplicity.
-        batting.pa = batting.ab + batting.bb + batting.hbp + batting.sf + batting.sh;
-
-        batting
-    }
-}
-
-
-impl FieldingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str, player_id: &str) -> Self {
-        let team_id = team_id.to_owned();
-        let player_id = player_id.to_owned();
-        let game_id = game_id.to_owned();
-        let mut fielding = Self {
-            player_id,
-            game_id,
-            team_id,
-            ..Default::default()
-        };
-
-        for attribute in element.attributes() {
-            match attribute {
-                Ok(attr) => {
-                    match attr.key.local_name().as_ref() {
-                        b"pos" => { fielding.pos = attribute_to_u8(&attr); }
-                        b"outs" => { fielding.o = attribute_to_u8(&attr); }
-                        b"po" => { fielding.po = attribute_to_u8(&attr); }
-                        b"a" => { fielding.a = attribute_to_u8(&attr); }
-                        b"e" => { fielding.e = attribute_to_u8(&attr); }
-                        b"dp" => { fielding.dp = attribute_to_u8(&attr); }
-                        b"tp" => { fielding.tp = attribute_to_u8(&attr); }
-                        b"bip" => { fielding.bip = attribute_to_u8(&attr); }
-                        b"bf" => { fielding.bf = attribute_to_u8(&attr); }
-                        _ => { }
-                    }
-                }
-                Err(_e) => {}
-            }
+        if self.pitched() {
+            pitching_game_logs.push(self.pitcher_game_log());
         }
 
-        fielding
+        (batting_game_logs, fielding_game_logs, pitching_game_logs)
     }
-}
 
-
-impl PitchingGamelog {
-    pub fn from_element(element: &BytesStart, game_id: &str, team_id: &str) -> Self {
-        let team_id = team_id.to_owned();
-        let game_id = game_id.to_owned();
-        let mut pitching = Self {
-            game_id,
-            team_id,
-            ..Default::default()
-        };
-
-        for attribute in element.attributes() {
-            match attribute {
-                Ok(attr) => {
-                    match attr.key.local_name().as_ref() {
-                        b"id" => {
-                            let attribute = str::from_utf8(attr.value.as_ref());
-                            pitching.player_id = attribute.unwrap_or("").to_owned();
-                        }
-                        b"gs" => { pitching.gs = attribute_to_bool(&attr); }
-                        b"cg" => { pitching.cg = attribute_to_bool(&attr); }
-                        b"sho" => { pitching.sho = attribute_to_bool(&attr); }
-                        b"gf" => { pitching.gf = attribute_to_bool(&attr); }
-                        b"outs" => { pitching.ipouts = attribute_to_u8(&attr); }
-                        b"ab" => { pitching.ab = attribute_to_u8(&attr); }
-                        b"bf" => { pitching.bf = attribute_to_u8(&attr); }
-                        b"h" => { pitching.h = attribute_to_u8(&attr); }
-                        b"r" => { pitching.r = attribute_to_u8(&attr); }
-                        b"er" => { pitching.er = attribute_to_u8(&attr); }
-                        b"hr" => { pitching.hr = attribute_to_u8(&attr); }
-                        b"bb" => { pitching.bb = attribute_to_u8(&attr); }
-                        b"ibb" => { pitching.ibb = attribute_to_u8(&attr); }
-                        b"so" => { pitching.so = attribute_to_u8(&attr); }
-                        b"wp" => { pitching.wp = attribute_to_u8(&attr); }
-                        b"bk" => { pitching.bk = attribute_to_u8(&attr); }
-                        b"hb" => { pitching.hbp = attribute_to_u8(&attr); }
-                        b"gb" => { pitching.gb = attribute_to_u8(&attr); }
-                        b"fb" => { pitching.fb = attribute_to_u8(&attr); }
-                        b"pitch" => { pitching.p = attribute_to_u8(&attr); }
-                        b"strike" => { pitching.s = attribute_to_u8(&attr); }
-                        b"dec" => {
-                            let attribute = str::from_utf8(attr.value.as_ref());
-                            pitching.decision = attribute.unwrap_or("").to_owned();
-                        }
-                        _ => { }
-                    }
-                }
-                Err(_e) => {}
-            }
-        }
-
-        pitching
-    }
-}
-
-
-fn find_attribute(element: &BytesStart, name: &[u8]) -> String {
-    let mut value = String::new();
-
-    for attribute in element.attributes() {
-        match attribute {
-            Ok(attr) => {
-                let attr_name = attr.key.local_name();
-                if name == attr_name.as_ref() {
-                    value.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                }
-            }
-            Err(_e) => {}
+    pub fn batter_game_log(&self) -> BattingGamelog {
+        BattingGamelog {
+            player_id: self.player_id.clone(),
+            game_id: self.game_id.clone(),
+            team_id: self.team_id.clone(),
+            pa: self.b_pa.unwrap_or_else(|| self.estimate_pa()),
+            ab: self.b_ab,
+            r: self.b_r,
+            h: self.b_h,
+            tb: self.b_tb,
+            d: self.b_2b,
+            t: self.b_3b,
+            hr: self.b_hr,
+            rbi: self.b_rbi,
+            bb: self.b_bb,
+            ibb: self.b_ibb,
+            so: self.b_so,
+            gidp: self.b_gdp,
+            hbp: self.b_hbp,
+            sh: self.b_sh,
+            sf: self.b_sf,
+            sb: self.b_sb,
+            cs: self.b_cs,
+            xi: self.b_xi,
+            pos: String::new(),
         }
     }
 
-    value
-}
+    /// Estimate the plate appearances based on tracked stats.
+    fn estimate_pa(&self) -> u8 {
+        self.b_ab + self.b_bb.unwrap_or(0) + self.b_hbp.unwrap_or(0) + self.b_sf.unwrap_or(0) + self.b_sh
+    }
 
+    pub fn fielder_game_logs(&self) -> Vec<FieldingGamelog> {
+        let mut game_logs = Vec::new();
 
-fn find_player_info(element: &BytesStart) -> (String, String) {
-    let mut player_id = String::new();
-    let mut positions = String::new();
+        if self.f_p_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 1,
+                gs: self.f_p_gs,
+                o: self.f_p_outs,
+                po: self.f_p_po,
+                tc: self.f_p_tc,
+                a: self.f_p_a,
+                e: self.f_p_e,
+                dp: self.f_p_dp,
+                tp: self.f_p_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
 
-    for attribute in element.attributes() {
-        match attribute {
-            Ok(attr) => {
-                match attr.key.local_name().as_ref() {
-                    b"id" => {
-                        player_id.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    b"pos" => {
-                        positions.push_str(String::from_utf8_lossy(attr.value.as_ref()).borrow());
-                    }
-                    _ => {
-                    }
-                }
-            }
-            Err(_e) => {}
+        if self.f_c_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 2,
+                gs: self.f_c_gs,
+                o: self.f_c_outs,
+                po: self.f_c_po,
+                tc: self.f_c_tc,
+                a: self.f_c_a,
+                e: self.f_c_e,
+                dp: self.f_c_dp,
+                tp: self.f_c_tp,
+                pb: self.f_c_pb,
+                ci: self.f_c_ci,
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_1b_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 3,
+                gs: self.f_1b_gs,
+                o: self.f_1b_outs,
+                po: self.f_1b_po,
+                tc: self.f_1b_tc,
+                a: self.f_1b_a,
+                e: self.f_1b_e,
+                dp: self.f_1b_dp,
+                tp: self.f_1b_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_2b_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 4,
+                gs: self.f_2b_gs,
+                o: self.f_2b_outs,
+                po: self.f_2b_po,
+                tc: self.f_2b_tc,
+                a: self.f_2b_a,
+                e: self.f_2b_e,
+                dp: self.f_2b_dp,
+                tp: self.f_2b_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_3b_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 5,
+                gs: self.f_3b_gs,
+                o: self.f_3b_outs,
+                po: self.f_3b_po,
+                tc: self.f_3b_tc,
+                a: self.f_3b_a,
+                e: self.f_3b_e,
+                dp: self.f_3b_dp,
+                tp: self.f_3b_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_ss_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 6,
+                gs: self.f_ss_gs,
+                o: self.f_ss_outs,
+                po: self.f_ss_po,
+                tc: self.f_ss_tc,
+                a: self.f_ss_a,
+                e: self.f_ss_e,
+                dp: self.f_ss_dp,
+                tp: self.f_ss_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_lf_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 1,
+                gs: self.f_lf_gs,
+                o: self.f_lf_outs,
+                po: self.f_lf_po,
+                tc: self.f_lf_tc,
+                a: self.f_lf_a,
+                e: self.f_lf_e,
+                dp: self.f_lf_dp,
+                tp: self.f_lf_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_cf_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 1,
+                gs: self.f_cf_gs,
+                o: self.f_cf_outs,
+                po: self.f_cf_po,
+                tc: self.f_cf_tc,
+                a: self.f_cf_a,
+                e: self.f_cf_e,
+                dp: self.f_cf_dp,
+                tp: self.f_cf_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        if self.f_rf_g {
+            let game_log = FieldingGamelog {
+                player_id: self.player_id.clone(),
+                game_id: self.game_id.clone(),
+                team_id: self.team_id.clone(),
+                pos: 1,
+                gs: self.f_rf_gs,
+                o: self.f_rf_outs,
+                po: self.f_rf_po,
+                tc: self.f_rf_tc,
+                a: self.f_rf_a,
+                e: self.f_rf_e,
+                dp: self.f_rf_dp,
+                tp: self.f_rf_tp,
+                pb: Some(0),
+                ci: Some(0),
+            };
+            game_logs.push(game_log);
+        }
+
+        game_logs
+    }
+
+    pub fn pitcher_game_log(&self) -> PitchingGamelog {
+        PitchingGamelog {
+            player_id: self.player_id.clone(),
+            game_id: self.game_id.clone(),
+            team_id: self.team_id.clone(),
+            gs: self.p_gs,
+            cg: self.p_cg,
+            sho: self.p_sho,
+            gf: self.p_gf,
+            w: self.p_w,
+            l: self.p_l,
+            sv: self.p_sv,
+            ipouts: self.p_outs,
+            ab: self.p_ab,
+            bf: self.p_tbf,
+            h: self.p_h,
+            r: self.p_r,
+            er: self.p_er,
+            hr: self.p_hr,
+            bb: self.p_bb,
+            ibb: self.p_ibb,
+            so: self.p_so,
+            wp: self.p_wp,
+            bk: self.p_bk,
+            hbp: self.p_hbp,
+            go: self.p_go,
+            ao: self.p_ao,
+            p: self.p_pitches,
+            s: self.p_strikes,
+            decision: String::new(),
         }
     }
 
-    (player_id, positions)
+    pub fn batted(&self) -> bool { self.batting_order_slot > 0 }
+    pub fn pitched(&self) -> bool { self.p_g }
 }
 
 
-pub fn gamelogs_from_boxscores<T: io::BufRead>(boxscore_xml: T) -> PlayerGameLogs {
+pub fn gamelogs_from_daily_stats<T: io::BufRead>(daily_csv: T) -> PlayerGameLogs {
     let mut batting_gamelogs = Vec::new();
-    let mut pitching_gamelogs = Vec::new();
     let mut fielding_gamelogs = Vec::new();
+    let mut pitching_gamelogs = Vec::new();
 
-    let mut reader = Reader::from_reader(boxscore_xml);
-    reader.config_mut().trim_text(true);
-    // Longest line from cwbox was 524 characters. Round up to allow some room for growth.
-    let mut buffer = Vec::with_capacity(550);
+    let mut reader = ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(daily_csv);
 
-    let mut active_team = None;
-    let mut active_player = None;
-    let mut active_player_pos = None;
-    let mut active_game = None;
-    loop {
-        match reader.read_event_into(&mut buffer) {
-            Ok(Event::Eof) => break,
-            Ok(Event::Start(e)) => {
-                match e.name().as_ref() {
-                    b"boxscore" => {
-                        active_game = Some(find_attribute(&e, b"game_id"));
-                    }
-                    b"players" | b"pitching" => {
-                        active_team = Some(find_attribute(&e, b"team"));
-                    }
-                    b"player" => {
-                        let (player_id, positions) = find_player_info(&e);
-                        active_player = Some(player_id);
-                        active_player_pos = Some(positions);
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::End(e)) => {
-                match e.name().as_ref() {
-                    b"boxscore" => {
-                        active_game = None;
-                    }
-                    b"player" => {
-                        active_player = None;
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::Empty(e)) => {
-                match e.name().as_ref() {
-                    b"batting" => {
-                        let player = active_player.as_ref().expect("Active player doesn't exist for Batting");
-                        let positions = active_player_pos.as_ref().expect("Active player positions don't exist for Batting");
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Batting");
-                        let team = active_team.as_ref().expect("Active team doesn't exist for Batting");
-                        let batting = BattingGamelog::from_element(&e, game, team, player, positions);
-                        batting_gamelogs.push(batting);
-                    }
-                    b"pitcher" => {
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Pitching");
-                        let team = active_team.as_ref().expect("Active team doesn't exist for Pitching");
-                        let pitcher = PitchingGamelog::from_element(&e, game, team);
-                        pitching_gamelogs.push(pitcher);
-                    }
-                    b"fielding" => {
-                        let player = active_player.as_ref().expect("Active player doesn't exist for Fielding");
-                        let game = active_game.as_ref().expect("Active game doesn't exist for Fielding");
-                        let team = active_team.as_ref().expect("Active team doesn't exist for Fielding");
-                        let fielding = FieldingGamelog::from_element(&e, game, team, player);
-                        fielding_gamelogs.push(fielding);
-                    }
-                    _ => {}
-                }
+    for result in reader.deserialize() {
+        match result {
+            Ok(game) => {
+                let game: Cwdaily = game;
+                let game_logs = game.split_into_game_logs();
+                batting_gamelogs.extend(game_logs.0);
+                fielding_gamelogs.extend(game_logs.1);
+                pitching_gamelogs.extend(game_logs.2);
             }
             Err(e) => {
-                eprintln!("Error at position {}: {:?}", reader.error_position(), e);
-                break;
+                eprintln!("Error: {}", e);
             }
-            _ => {}
         }
-
-        buffer.clear();
     }
 
     (batting_gamelogs, fielding_gamelogs, pitching_gamelogs)

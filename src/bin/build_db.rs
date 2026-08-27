@@ -2,6 +2,7 @@ use std::cmp;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::io;
 use std::path;
@@ -9,7 +10,7 @@ use std::process::{ChildStdout, Command, Stdio};
 
 use baseball::register::Person;
 use baseball::retrosheet::game;
-use baseball::chadwick::gamelogs::{gamelogs_from_boxscores, PlayerGameLogs};
+use baseball::chadwick::gamelogs::{gamelogs_from_daily_stats, PlayerGameLogs};
 use baseball_tools::database::Sql;
 use baseball_tools::games;
 use baseball_tools::player;
@@ -36,6 +37,25 @@ struct DatabaseArgs {
 
     start_season: Option<u16>,
     last_season: Option<u16>,
+}
+
+
+enum GameFiles {
+    Event,
+    Deduced,
+    BoxScore,
+}
+
+
+impl fmt::Display for GameFiles {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let file_type = match self {
+            &GameFiles::Event => "event",
+            &GameFiles::Deduced => "deduced",
+            &GameFiles::BoxScore => "box score",
+        };
+        write!(f, "{}", file_type)
+    }
 }
 
 
@@ -213,20 +233,16 @@ impl<'a> GameLogLoader<'a> {
     }
 
     // Player section of loading game logs.
-    fn load_season_boxscores(&self, season: &str, event_files: bool) -> Result<ChildStdout, Box<dyn Error>> {
+    fn load_player_daily_stats(&self, season: &str, file_type: &GameFiles) -> Result<ChildStdout, Box<dyn Error>> {
         let season_dir = self.retrosheet_dir.join(season);
-        let mut cwbox = Command::new("cwbox");
-        cwbox.args(["-q", "-y", season, "-X"]).current_dir(&season_dir);
-        if event_files {
-            cwbox.args(find_event_files(&season_dir)?);
-        }
-        else {
-            cwbox.args(find_boxscore_files(&season_dir)?);
-        }
-        let command = cwbox.stdin(Stdio::null()).stdout(Stdio::piped());
+        let mut cwdaily = Command::new("cwdaily");
+        // Use all of the fields but not everything may make it to a game log.
+        cwdaily.args(["-q", "-y", season, "-f", "0-153"]).current_dir(&season_dir);
+        cwdaily.args(find_game_files(&season_dir, file_type)?);
+        let command = cwdaily.stdin(Stdio::null()).stdout(Stdio::piped());
         match command.spawn() {
             Ok(mut child) => {
-                let stdout = child.stdout.take().expect("cwbox stdout handle not available");
+                let stdout = child.stdout.take().expect("cwdaily stdout handle not available");
                 Ok(stdout)
             }
             Err(err) => {
@@ -412,49 +428,60 @@ impl<'a> GameLogLoader<'a> {
 
     fn load_player_game_logs(&self, season: &str, game_ids: &HashSet<String>) -> Result<PlayerGameLogs, Box<dyn Error>> {
         // Load boxscores from the event files to get more accurate data.
-        println!("Loading player game logs from {} season", season);
-        let stdout = self.load_season_boxscores(season, true)?;
-        let (mut batting_gamelogs, mut fielding_gamelogs, mut pitching_gamelogs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
-
-        // Collect all games found from loading the event files and then check the overall list
-        // against what was found to detect any missing games.
+        let mut batting_gamelogs = Vec::new();
+        let mut fielding_gamelogs = Vec::new();
+        let mut pitching_gamelogs = Vec::new();
+        // Initialize the missing games as all games so the first run will load as many as
+        // possible. Subsequent runs will attempt to find any missed from the first loop.
+        let mut missing_game_ids = game_ids.clone();
         let mut found_game_ids = HashSet::with_capacity(game_ids.len());
-        for game_log in &pitching_gamelogs {
-            found_game_ids.insert(game_log.game_id.clone());
-        }
 
-        let mut missing_game_ids = HashSet::new();
-        for game_id in game_ids {
-            if !found_game_ids.contains(game_id) {
-                missing_game_ids.insert(game_id.clone());
-            }
-        }
+        println!("Loading player game logs from {} season.", season);
+        for file_type in [GameFiles::Event, GameFiles::Deduced, GameFiles::BoxScore] {
+            let stdout = self.load_player_daily_stats(season, &file_type)?;
+            let (b_game_logs, f_game_logs, p_game_logs) = gamelogs_from_daily_stats(io::BufReader::new(stdout));
 
-        // Missing some games from the event files. Load the box score event files to get the
-        // missing games.
-        if !missing_game_ids.is_empty() {
-            println!("Missing {} games from event files. Loading box score files.", missing_game_ids.len());
-            let stdout = self.load_season_boxscores(season, false)?;
-            let (be_batting_logs, be_fielding_logs, be_pitching_logs) = gamelogs_from_boxscores(io::BufReader::new(stdout));
-
-            for game_log in be_batting_logs.into_iter() {
+            for game_log in b_game_logs.into_iter() {
                 if missing_game_ids.contains(&game_log.game_id) {
                     batting_gamelogs.push(game_log);
                 }
             }
 
-            for game_log in be_fielding_logs.into_iter() {
+            for game_log in f_game_logs.into_iter() {
                 if missing_game_ids.contains(&game_log.game_id) {
                     fielding_gamelogs.push(game_log);
                 }
             }
 
-            for game_log in be_pitching_logs.into_iter() {
+            for game_log in p_game_logs.into_iter() {
                 if missing_game_ids.contains(&game_log.game_id) {
                     pitching_gamelogs.push(game_log);
                 }
             }
+
+            // Collect all games found from loading the event files and then check the overall list
+            // against what was found to detect any missing games.
+            found_game_ids.clear();
+            for game_log in &pitching_gamelogs {
+                found_game_ids.insert(game_log.game_id.clone());
+            }
+
+            missing_game_ids.clear();
+            for game_id in game_ids {
+                if !found_game_ids.contains(game_id) {
+                    missing_game_ids.insert(game_id.clone());
+                }
+            }
+
+            if missing_game_ids.is_empty() {
+                break;
+            }
+            else {
+                println!("Missing {} games from {} files. Loading next file type.", missing_game_ids.len(), file_type);
+            }
         }
+
+        println!("Final missing games: {}", missing_game_ids.len());
 
         Ok((batting_gamelogs, fielding_gamelogs, pitching_gamelogs))
     }
@@ -532,15 +559,15 @@ impl BattingSlashLine {
         let ab: u16 = gamelog.ab.into();
         self.h += h;
         self.ab += ab;
-        let d: u16 = gamelog.d.into();
-        let t: u16 = gamelog.t.into();
-        let hr: u16 = gamelog.hr.into();
+        let d: u16 = gamelog.d.unwrap_or(0).into();
+        let t: u16 = gamelog.t.unwrap_or(0).into();
+        let hr: u16 = gamelog.hr.unwrap_or(0).into();
         // The hits field includes extra-base hits so the game total for each stat includes the
         // number of bases beyond a single.
         self.tb += h + d + t * 2 + hr * 3;
-        self.bb += gamelog.bb;
-        self.hbp += gamelog.hbp;
-        self.sf += gamelog.sf;
+        self.bb += gamelog.bb.unwrap_or(0);
+        self.hbp += gamelog.hbp.unwrap_or(0);
+        self.sf += gamelog.sf.unwrap_or(0);
     }
 
     fn slash_line(&self) -> (f32, f32, f32) {
@@ -645,15 +672,15 @@ impl PitcherStats {
     fn add_gamelog(&mut self, gamelog: &player::PitchingGamelog) {
         let ipouts: u32 = gamelog.ipouts.into();
         self.ipouts += ipouts;
-        let er: u16 = gamelog.er.into();
+        let er: u16 = gamelog.er.unwrap_or(0).into();
         self.er += er;
-        let hr: u16 = gamelog.hr.into();
+        let hr: u16 = gamelog.hr.unwrap_or(0).into();
         self.hr += hr;
-        let bb: u16 = gamelog.bb.into();
+        let bb: u16 = gamelog.bb.unwrap_or(0).into();
         self.bb += bb;
         let hbp: u16 = gamelog.hbp.into();
         self.hbp += hbp;
-        let so: u16 = gamelog.so.into();
+        let so: u16 = gamelog.so.unwrap_or(0).into();
         self.so += so;
     }
 
@@ -691,36 +718,24 @@ impl PitcherStats {
 }
 
 
-fn find_event_files(season_dir: &path::Path) -> Result<Vec<String>, Box<dyn Error>> {
+fn find_game_files(season_dir: &path::Path, file_type: &GameFiles) -> Result<Vec<String>, Box<dyn Error>> {
     let mut files = Vec::new();
     for entry in fs::read_dir(season_dir)? {
         let entry = entry?;
         let path = entry.path();
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        match extension {
-            "EVA" | "EVN" | "EVR" => {
+        match (&file_type, extension) {
+            (GameFiles::Event, "EVA" | "EVN" | "EVR") => {
                 if let Some(path_str) = path.to_str() {
                     files.push(path_str.to_string());
                 }
             }
-            _ => {}
-        }
-    }
-
-    Ok(files)
-}
-
-
-fn find_boxscore_files(season_dir: &path::Path) -> Result<Vec<String>, Box<dyn Error>> {
-    let mut files = Vec::new();
-    for entry in fs::read_dir(season_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        match extension {
-            // Include only the boxscore files because they're simpler and enough to get the stats
-            // for every player.
-            "EBA" | "EBN" | "EBR" => {
+            (GameFiles::Deduced, "EDA" | "EDN" | "EDR") => {
+                if let Some(path_str) = path.to_str() {
+                    files.push(path_str.to_string());
+                }
+            }
+            (GameFiles::BoxScore, "EBA" | "EBN" | "EBR") => {
                 if let Some(path_str) = path.to_str() {
                     files.push(path_str.to_string());
                 }

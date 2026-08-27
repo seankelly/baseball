@@ -56,6 +56,8 @@ pub fn load_file_iter<T>(file: &Path) -> ChadwickFileIter<T>
     }
 }
 
+
+/// Convert a field that is "F" or "T" into false or true respectively.
 fn bool_from_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
     where D: Deserializer<'de>,
 {
@@ -68,6 +70,22 @@ fn bool_from_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
         )),
     }
 }
+
+
+/// Convert a field that is "0" or "1" into false or true respectively.
+fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
+    where D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)?.as_ref() {
+        "1" => Ok(true),
+        "0" => Ok(false),
+        other => Err(de::Error::invalid_value(
+            Unexpected::Str(other),
+            &"1 or 0",
+        )),
+    }
+}
+
 
 fn parse_handedness<'de, D>(deserializer: D) -> Result<Handedness, D::Error>
     where D: Deserializer<'de>,

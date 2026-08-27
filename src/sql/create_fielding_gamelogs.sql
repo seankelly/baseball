@@ -6,12 +6,14 @@ CREATE TABLE fielding_gamelogs (
     season_game INTEGER,
     team_game INTEGER,
     pos INTEGER,
+    gs BOOLEAN,
     o INTEGER,
     po INTEGER,
+    tc INTEGER,
     a INTEGER,
     e INTEGER,
     dp INTEGER,
     tp INTEGER,
-    bip INTEGER,
-    bf INTEGER
+    pp INTEGER,
+    ci INTEGER
 )
