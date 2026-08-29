@@ -1,4 +1,6 @@
+use std::default::Default;
 use std::error::Error;
+use std::sync::Arc;
 
 use baseball::chadwick::gamelogs;
 
@@ -24,6 +26,7 @@ pub trait PlayerGamelog {
 
 
 #[allow(non_snake_case)]
+#[derive(Default)]
 pub struct BattingGamelog {
     pub player_id: String,
     pub game_id: String,
@@ -65,6 +68,7 @@ pub struct BattingGamelog {
 
 
 #[allow(non_snake_case)]
+#[derive(Default)]
 pub struct FieldingGamelog {
     pub player_id: String,
     pub game_id: String,
@@ -87,6 +91,7 @@ pub struct FieldingGamelog {
 
 
 #[allow(non_snake_case)]
+#[derive(Default)]
 pub struct PitchingGamelog {
     pub player_id: String,
     pub game_id: String,
@@ -193,47 +198,14 @@ impl CelEval for BattingGamelog {
                 "woba" => context.add_variable("woba", self.woba)?,
                 "babip" => context.add_variable("babip", self.babip)?,
                 "pos" => context.add_variable("pos", self.pos.clone())?,
-                _ => {},
+                _ => {
+                    let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
+                    return Err(Box::new(err));
+                },
             }
         }
 
         Ok(())
-    }
-
-    fn check_cel_variables(variables: &[&str]) -> bool {
-        for name in variables {
-            match *name {
-                "career_game" => {},
-                "season_game" => {},
-                "team_game" => {},
-                "pa" => {},
-                "ab" => {},
-                "r" => {},
-                "h" => {},
-                "d" => {},
-                "t" => {},
-                "hr" => {},
-                "rbi" => {},
-                "bb" => {},
-                "ibb" => {},
-                "so" => {},
-                "gidp" => {},
-                "hbp" => {},
-                "sh" => {},
-                "sf" => {},
-                "sb" => {},
-                "cs" => {},
-                "avg" => {},
-                "obp" => {},
-                "slg" => {},
-                "woba" => {},
-                "babip" => {},
-                "pos" => {},
-                _ => return false,
-            }
-        }
-
-        true
     }
 }
 
@@ -458,35 +430,14 @@ impl CelEval for FieldingGamelog {
                 "tp" => context.add_variable("tp", self.tp)?,
                 "pb" => context.add_variable("pb", self.pb)?,
                 "ci" => context.add_variable("ci", self.ci)?,
-                _ => {},
+                _ => {
+                    let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
+                    return Err(Box::new(err));
+                },
             }
         }
 
         Ok(())
-    }
-
-    fn check_cel_variables(variables: &[&str]) -> bool {
-        for name in variables {
-            match *name {
-                "career_game" => {},
-                "season_game" => {},
-                "team_game" => {},
-                "pos" => {},
-                "gs" => {},
-                "o" => {},
-                "po" => {},
-                "tc" => {},
-                "a" => {},
-                "e" => {},
-                "dp" => {},
-                "tp" => {},
-                "pb" => {},
-                "ci" => {},
-                _ => return false,
-            }
-        }
-
-        true
     }
 }
 
@@ -659,52 +610,16 @@ impl CelEval for PitchingGamelog {
                 "decision" => context.add_variable("decision", self.decision.clone())?,
                 "era" => context.add_variable("era", self.era)?,
                 "fip" => context.add_variable("fip", self.fip)?,
-                _ => {},
+                _ => {
+                    let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
+                    return Err(Box::new(err));
+                },
             }
         }
 
         Ok(())
     }
 
-    fn check_cel_variables(variables: &[&str]) -> bool {
-        for name in variables {
-            match *name {
-                "career_game" => {},
-                "season_game" => {},
-                "team_game" => {},
-                "gs" => {},
-                "cg" => {},
-                "sho" => {},
-                "gf" => {},
-                "w" => {},
-                "l" => {},
-                "sv" => {},
-                "ipouts" => {},
-                "ab" => {},
-                "bf" => {},
-                "h" => {},
-                "r" => {},
-                "er" => {},
-                "hr" => {},
-                "bb" => {},
-                "ibb" => {},
-                "so" => {},
-                "wp" => {},
-                "bk" => {},
-                "hbp" => {},
-                "go" => {},
-                "ao" => {},
-                "p" => {},
-                "s" => {},
-                "decision" => {},
-                "era" => {},
-                "fip" => {},
-                _ => return false,
-            }
-        }
-
-        true
-    }
 }
 
 

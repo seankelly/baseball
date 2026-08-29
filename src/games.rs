@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::default::Default;
 use std::error::Error;
+use std::sync::Arc;
 
 use baseball::retrosheet::game;
 
@@ -20,7 +22,7 @@ pub enum RetrosheetOption {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Linescore {
     linescore: Vec<Option<u8>>,
 }
@@ -305,7 +307,7 @@ pub struct GameLogSmall {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TeamGameLog {
     // This game ID used on many sites.
     pub game_id: String,
@@ -496,7 +498,7 @@ pub struct TeamGameLog {
 
 
 /// Team game log with all player, manager, and umpire IDs and related fields removed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TeamGameLogSmall {
     // This game ID used on many sites.
     pub game_id: String,
@@ -1498,6 +1500,11 @@ impl From<RetrosheetOption> for Value {
 }
 
 
+impl Default for RetrosheetOption {
+    fn default() -> Self { RetrosheetOption::None }
+}
+
+
 impl FromSql for RetrosheetOption {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
         let result = match value {
@@ -2204,185 +2211,14 @@ impl CelEval for TeamGameLog {
                 "opponent_9_pos" => context.add_variable_from_value("opponent_9_pos", self.opponent_9_pos.clone()),
                 "additional_info" => context.add_variable_from_value("additional_info", self.additional_info.clone()),
                 "acquisition_info" => context.add_variable_from_value("acquisition_info", self.acquisition_info.clone()),
-                _ => {},
+                _ => {
+                    let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
+                    return Err(Box::new(err));
+                },
             }
         }
 
         Ok(())
-    }
-
-    fn check_cel_variables(variables: &[&str]) -> bool {
-        for name in variables {
-            match *name {
-                "w" => {}
-                "l" => {}
-                "t" => {}
-                "date" => {}
-                "number_of_game" => {}
-                "day_of_week" => {}
-                "team" => {}
-                "league" => {}
-                "team_game_number" => {}
-                "opponent_team" => {}
-                "opponent_league" => {}
-                "opponent_team_game_number" => {}
-                "score" => {}
-                "opponent_score" => {}
-                "number_of_outs" => {}
-                "day_night" => {}
-                "completion_info" => {}
-                "forfeit_info" => {}
-                "protest_info" => {}
-                "park_id" => {}
-                "attendance" => {}
-                "time_of_game" => {}
-                "line_score" => {}
-                "opponent_line_score" => {}
-                "ab" => {}
-                "hits" => {}
-                "doubles" => {}
-                "triples" => {}
-                "homeruns" => {}
-                "rbi" => {}
-                "sac_hits" => {}
-                "sac_flies" => {}
-                "hbp" => {}
-                "walks" => {}
-                "intentional_walks" => {}
-                "strikeouts" => {}
-                "stolen_bases" => {}
-                "caught_stealing" => {}
-                "gidp" => {}
-                "catcher_interference" => {}
-                "left_on_base" => {}
-                "pitchers_used" => {}
-                "individual_earned_runs" => {}
-                "team_earned_runs" => {}
-                "wild_pitches" => {}
-                "balks" => {}
-                "putouts" => {}
-                "assists" => {}
-                "errors" => {}
-                "passed_balls" => {}
-                "double_plays" => {}
-                "triple_plays" => {}
-                "opponent_ab" => {}
-                "opponent_hits" => {}
-                "opponent_doubles" => {}
-                "opponent_triples" => {}
-                "opponent_homeruns" => {}
-                "opponent_rbi" => {}
-                "opponent_sac_hits" => {}
-                "opponent_sac_flies" => {}
-                "opponent_hbp" => {}
-                "opponent_walks" => {}
-                "opponent_intentional_walks" => {}
-                "opponent_strikeouts" => {}
-                "opponent_stolen_bases" => {}
-                "opponent_caught_stealing" => {}
-                "opponent_gidp" => {}
-                "opponent_catcher_interference" => {}
-                "opponent_left_on_base" => {}
-                "opponent_pitchers_used" => {}
-                "opponent_individual_earned_runs" => {}
-                "opponent_team_earned_runs" => {}
-                "opponent_wild_pitches" => {}
-                "opponent_balks" => {}
-                "opponent_putouts" => {}
-                "opponent_assists" => {}
-                "opponent_errors" => {}
-                "opponent_passed_balls" => {}
-                "opponent_double_plays" => {}
-                "opponent_triple_plays" => {}
-                "home_plate_umpire_name" => {}
-                "home_plate_umpire_id" => {}
-                "first_base_umpire_name" => {}
-                "first_base_umpire_id" => {}
-                "second_base_umpire_name" => {}
-                "second_base_umpire_id" => {}
-                "third_base_umpire_name" => {}
-                "third_base_umpire_id" => {}
-                "left_field_umpire_name" => {}
-                "left_field_umpire_id" => {}
-                "right_field_umpire_name" => {}
-                "right_field_umpire_id" => {}
-                "manager_id" => {}
-                "manager_name" => {}
-                "opponent_manager_id" => {}
-                "opponent_manager_name" => {}
-                "winning_pitcher_name" => {}
-                "winning_pitcher_id" => {}
-                "losing_pitcher_name" => {}
-                "losing_pitcher_id" => {}
-                "saving_pitcher_name" => {}
-                "saving_pitcher_id" => {}
-                "gwrbi_player_name" => {}
-                "gwrbi_player_id" => {}
-                "starter_name" => {}
-                "starter_id" => {}
-                "opponent_starter_name" => {}
-                "opponent_starter_id" => {}
-                "lineup_1_id" => {}
-                "lineup_1_name" => {}
-                "lineup_1_pos" => {}
-                "lineup_2_id" => {}
-                "lineup_2_name" => {}
-                "lineup_2_pos" => {}
-                "lineup_3_id" => {}
-                "lineup_3_name" => {}
-                "lineup_3_pos" => {}
-                "lineup_4_id" => {}
-                "lineup_4_name" => {}
-                "lineup_4_pos" => {}
-                "lineup_5_id" => {}
-                "lineup_5_name" => {}
-                "lineup_5_pos" => {}
-                "lineup_6_id" => {}
-                "lineup_6_name" => {}
-                "lineup_6_pos" => {}
-                "lineup_7_id" => {}
-                "lineup_7_name" => {}
-                "lineup_7_pos" => {}
-                "lineup_8_id" => {}
-                "lineup_8_name" => {}
-                "lineup_8_pos" => {}
-                "lineup_9_id" => {}
-                "lineup_9_name" => {}
-                "lineup_9_pos" => {}
-                "opponent_1_id" => {}
-                "opponent_1_name" => {}
-                "opponent_1_pos" => {}
-                "opponent_2_id" => {}
-                "opponent_2_name" => {}
-                "opponent_2_pos" => {}
-                "opponent_3_id" => {}
-                "opponent_3_name" => {}
-                "opponent_3_pos" => {}
-                "opponent_4_id" => {}
-                "opponent_4_name" => {}
-                "opponent_4_pos" => {}
-                "opponent_5_id" => {}
-                "opponent_5_name" => {}
-                "opponent_5_pos" => {}
-                "opponent_6_id" => {}
-                "opponent_6_name" => {}
-                "opponent_6_pos" => {}
-                "opponent_7_id" => {}
-                "opponent_7_name" => {}
-                "opponent_7_pos" => {}
-                "opponent_8_id" => {}
-                "opponent_8_name" => {}
-                "opponent_8_pos" => {}
-                "opponent_9_id" => {}
-                "opponent_9_name" => {}
-                "opponent_9_pos" => {}
-                "additional_info" => {}
-                "acquisition_info" => {}
-                _ => return false,
-            }
-        }
-
-        true
     }
 }
 
@@ -2674,100 +2510,14 @@ impl CelEval for TeamGameLogSmall {
                 "opponent_passed_balls" => context.add_variable_from_value("opponent_passed_balls", self.opponent_passed_balls.clone()),
                 "opponent_double_plays" => context.add_variable_from_value("opponent_double_plays", self.opponent_double_plays.clone()),
                 "opponent_triple_plays" => context.add_variable("opponent_triple_plays", self.opponent_triple_plays)?,
-                _ => {},
+                _ => {
+                    let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
+                    return Err(Box::new(err));
+                },
             }
         }
 
         Ok(())
-    }
-
-    fn check_cel_variables(variables: &[&str]) -> bool {
-        for name in variables {
-            match *name {
-                "w" => {}
-                "l" => {}
-                "t" => {}
-                "date" => {}
-                "number_of_game" => {}
-                "team" => {}
-                "league" => {}
-                "team_game_number" => {}
-                "opponent_team" => {}
-                "opponent_league" => {}
-                "opponent_team_game_number" => {}
-                "score" => {}
-                "opponent_score" => {}
-                "number_of_outs" => {}
-                "day_night" => {}
-                "completion_info" => {}
-                "forfeit_info" => {}
-                "protest_info" => {}
-                "park_id" => {}
-                "attendance" => {}
-                "time_of_game" => {}
-                "line_score" => {}
-                "opponent_line_score" => {}
-                "ab" => {}
-                "hits" => {}
-                "doubles" => {}
-                "triples" => {}
-                "homeruns" => {}
-                "rbi" => {}
-                "sac_hits" => {}
-                "sac_flies" => {}
-                "hbp" => {}
-                "walks" => {}
-                "intentional_walks" => {}
-                "strikeouts" => {}
-                "stolen_bases" => {}
-                "caught_stealing" => {}
-                "gidp" => {}
-                "catcher_interference" => {}
-                "left_on_base" => {}
-                "pitchers_used" => {}
-                "individual_earned_runs" => {}
-                "team_earned_runs" => {}
-                "wild_pitches" => {}
-                "balks" => {}
-                "putouts" => {}
-                "assists" => {}
-                "errors" => {}
-                "passed_balls" => {}
-                "double_plays" => {}
-                "triple_plays" => {}
-                "opponent_ab" => {}
-                "opponent_hits" => {}
-                "opponent_doubles" => {}
-                "opponent_triples" => {}
-                "opponent_homeruns" => {}
-                "opponent_rbi" => {}
-                "opponent_sac_hits" => {}
-                "opponent_sac_flies" => {}
-                "opponent_hbp" => {}
-                "opponent_walks" => {}
-                "opponent_intentional_walks" => {}
-                "opponent_strikeouts" => {}
-                "opponent_stolen_bases" => {}
-                "opponent_caught_stealing" => {}
-                "opponent_gidp" => {}
-                "opponent_catcher_interference" => {}
-                "opponent_left_on_base" => {}
-                "opponent_pitchers_used" => {}
-                "opponent_individual_earned_runs" => {}
-                "opponent_team_earned_runs" => {}
-                "opponent_wild_pitches" => {}
-                "opponent_balks" => {}
-                "opponent_putouts" => {}
-                "opponent_assists" => {}
-                "opponent_errors" => {}
-                "opponent_passed_balls" => {}
-                "opponent_double_plays" => {}
-                "opponent_triple_plays" => {}
-                _ => return false,
-            }
-        }
-
-        true
     }
 }
 

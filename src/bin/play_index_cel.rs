@@ -400,23 +400,22 @@ fn display_windows(windows: Vec<&WindowEntry>) {
 }
 
 
-fn check_program<T: CelEval>(source: &str) -> Result<bool, Box<dyn Error>> {
-    if !CelExec::check_program_variables::<T>(source)? {
-        eprintln!("Program condition requires unknown variables.");
-        // Fix to be Err?
-        return Ok(false);
+fn check_program<T: CelEval>(source: &str) -> bool {
+    if let Err(e) = CelExec::check_program_variables::<T>(source) {
+        eprintln!("Program condition requires unknown variables: {}.", e);
+        return false;
     }
-    Ok(true)
+    true
 }
 
 
 fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
-    if !check_program::<T>(&streak_args.condition)? {
+    if !check_program::<T>(&streak_args.condition) {
         return Ok(());
     }
-    if let Some(count_program) = &streak_args.count && !check_program::<T>(count_program)? {
+    if let Some(count_program) = &streak_args.count && !check_program::<T>(count_program) {
         return Ok(());
     }
 
@@ -429,10 +428,10 @@ fn find_player_game_log_streaks<T>(connection: &Connection, streak_args: &Streak
 
 fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> Result<(), Box<dyn Error>>
 {
-    if !check_program::<games::TeamGameLogSmall>(&streak_args.condition)? {
+    if !check_program::<games::TeamGameLogSmall>(&streak_args.condition) {
         return Ok(());
     }
-    if let Some(count_program) = &streak_args.count && !check_program::<games::TeamGameLogSmall>(count_program)? {
+    if let Some(count_program) = &streak_args.count && !check_program::<games::TeamGameLogSmall>(count_program) {
         return Ok(());
     }
 
@@ -446,7 +445,7 @@ fn find_team_game_streaks(connection: &Connection, streak_args: &StreakArgs) -> 
 fn find_player_game_log_windows<T>(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
     where T: Send + Sync + CelEval + SearchKey + Sql
 {
-    if !check_program::<T>(&window_args.count)? {
+    if !check_program::<T>(&window_args.count) {
         return Ok(());
     }
 
@@ -459,7 +458,7 @@ fn find_player_game_log_windows<T>(connection: &Connection, window_args: &Window
 
 fn find_team_game_windows(connection: &Connection, window_args: &WindowArgs) -> Result<(), Box<dyn Error>>
 {
-    if !check_program::<games::TeamGameLogSmall>(&window_args.count)? {
+    if !check_program::<games::TeamGameLogSmall>(&window_args.count) {
         return Ok(());
     }
 

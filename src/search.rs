@@ -11,12 +11,9 @@ use tracing::trace;
 
 const DEFAULT_RESULT_LIMIT: usize = 10;
 
-pub trait CelEval {
+pub trait CelEval: Default {
     /// Add the needed variables to the context for execution.
     fn add_cel_variables(&self, context: &mut Context, variables: &[&str]) -> Result<(), Box<dyn Error>>;
-
-    /// Check if the needed variables are provided by the type.
-    fn check_cel_variables(variables: &[&str]) -> bool;
 }
 
 
@@ -134,11 +131,13 @@ impl<'a> CelExec<'a> {
         Ok(())
     }
 
-    pub fn check_program_variables<T: CelEval>(source: &str) -> Result<bool, Box<dyn Error>> {
+    pub fn check_program_variables<T: CelEval>(source: &str) -> Result<(), Box<dyn Error>> {
         let program = Program::compile(source)?;
+        let record = T::default();
         let references = program.references();
         let variables = references.variables();
-        Ok(T::check_cel_variables(&variables))
+        let mut context = Context::default();
+        record.add_cel_variables(&mut context, &variables)
     }
 
     pub fn streak_eval<'data, T, U>(&self, map: &'data HashMap<T, Vec<U>>) -> HashMap<&'data T, Vec<StreakEntry>>
