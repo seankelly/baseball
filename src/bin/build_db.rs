@@ -312,7 +312,7 @@ impl<'a> GameLogLoader<'a> {
             }
             else {
                 // Save the new career games played for that player.
-                if season_game > 0 && player.is_empty() {
+                if season_game > 0 && !player.is_empty() {
                     career_offset.insert(player.to_owned(), offset + season_game);
                 }
                 player = gl.player_id.as_str();
