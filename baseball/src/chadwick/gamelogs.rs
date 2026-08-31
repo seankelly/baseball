@@ -3,7 +3,6 @@ use std::io;
 use std::str;
 
 use csv::ReaderBuilder;
-use serde::Serialize;
 use serde_derive::Deserialize;
 
 use crate::chadwick::bool_from_int;
@@ -203,7 +202,7 @@ pub struct Cwdaily {
 }
 
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct BattingGamelog {
     pub player_id: String,
@@ -233,7 +232,7 @@ pub struct BattingGamelog {
 }
 
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct FieldingGamelog {
     pub player_id: String,
@@ -253,7 +252,7 @@ pub struct FieldingGamelog {
 }
 
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct PitchingGamelog {
     pub player_id: String,

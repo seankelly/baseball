@@ -2,7 +2,6 @@ use std::default::Default;
 use std::io;
 
 use csv::ReaderBuilder;
-use serde::Serialize;
 use serde_derive::Deserialize;
 
 use crate::chadwick::bool_from_string;
@@ -108,7 +107,7 @@ pub struct RawGame<'a> {
     pub game_type: &'a str,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Game {
     // 0
