@@ -237,7 +237,7 @@ impl<'a> GameLogLoader<'a> {
         let season_dir = self.retrosheet_dir.join(season);
         let mut cwdaily = Command::new("cwdaily");
         // Use all of the fields but not everything may make it to a game log.
-        cwdaily.args(["-q", "-y", season, "-f", "0-153"]).current_dir(&season_dir);
+        cwdaily.args(["-Q", "-y", season, "-f", "0-153"]).current_dir(&season_dir);
         cwdaily.args(find_game_files(&season_dir, file_type)?);
         let command = cwdaily.stdin(Stdio::null()).stdout(Stdio::piped());
         match command.spawn() {
