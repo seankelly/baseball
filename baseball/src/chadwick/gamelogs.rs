@@ -48,9 +48,12 @@ pub struct Cwdaily {
     pub b_sb: Option<u8>,
     pub b_cs: Option<u8>,
     pub b_xi: Option<u8>,
-    pub b_g_dh: u8,
-    pub b_g_ph: u8,
-    pub b_g_pr: u8,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub b_g_dh: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub b_g_ph: bool,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub b_g_pr: bool,
     // Pitching fields.
     #[serde(deserialize_with = "bool_from_int")]
     pub p_g: bool,
@@ -330,8 +333,49 @@ impl Cwdaily {
             sb: self.b_sb,
             cs: self.b_cs,
             xi: self.b_xi,
-            pos: String::new(),
+            pos: self.positions_played(),
         }
+    }
+
+    fn positions_played(&self) -> String {
+        let mut pos = String::new();
+        if self.f_p_g {
+            pos.push_str("1");
+        }
+        if self.f_c_g {
+            pos.push_str("2");
+        }
+        if self.f_1b_g {
+            pos.push_str("3");
+        }
+        if self.f_2b_g {
+            pos.push_str("4");
+        }
+        if self.f_3b_g {
+            pos.push_str("5");
+        }
+        if self.f_ss_g {
+            pos.push_str("6");
+        }
+        if self.f_rf_g {
+            pos.push_str("7");
+        }
+        if self.f_cf_g {
+            pos.push_str("8");
+        }
+        if self.f_lf_g {
+            pos.push_str("9");
+        }
+        if self.b_g_dh {
+            pos.push_str("D");
+        }
+        if self.b_g_ph {
+            pos.push_str("H");
+        }
+        if self.b_g_pr {
+            pos.push_str("R");
+        }
+        pos
     }
 
     /// Estimate the plate appearances based on tracked stats.
