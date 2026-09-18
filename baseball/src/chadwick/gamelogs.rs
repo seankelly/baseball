@@ -598,8 +598,22 @@ impl Cwdaily {
             ao: self.p_ao,
             p: self.p_pitches,
             s: self.p_strikes,
-            decision: String::new(),
+            decision: self.decision(),
         }
+    }
+
+    fn decision(&self) -> String {
+        let mut decision = String::new();
+        if self.p_w {
+            decision.push_str("W");
+        }
+        else if self.p_l {
+            decision.push_str("L");
+        }
+        else if self.p_sv {
+            decision.push_str("SV");
+        }
+        decision
     }
 
     pub fn batted(&self) -> bool { self.batting_order_slot > 0 }
