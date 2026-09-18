@@ -14,6 +14,7 @@ use baseball::chadwick::gamelogs::{gamelogs_from_daily_stats, PlayerGameLogs};
 use baseball_tools::database::Sql;
 use baseball_tools::games;
 use baseball_tools::player;
+use baseball_tools::id;
 use baseball_tools::internals::Guts;
 
 use clap::Parser;
@@ -290,8 +291,8 @@ impl<'a> GameLogLoader<'a> {
     }
 
     fn order_batting_gamelogs(mut gamelogs: Vec<player::BattingGamelog>, career_offset: &mut HashMap<String, u16>) -> Vec<player::BattingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
+        let mut player = &id::RetroPlayerId::default();
+        let mut last_game = &id::RetroGameId::default();
         let mut slash_line = BattingSlashLine::new();
         // Start at zero because whether the current game is the same as the previous is checked
         // before setting the player's season game count.
@@ -313,28 +314,28 @@ impl<'a> GameLogLoader<'a> {
             else {
                 // Save the new career games played for that player.
                 if season_game > 0 && !player.is_empty() {
-                    career_offset.insert(player.to_owned(), offset + season_game);
+                    career_offset.insert(player.to_string(), offset + season_game);
                 }
-                player = gl.player_id.as_str();
+                player = &gl.player_id;
                 slash_line.clear();
                 slash_line.add_gamelog(gl);
                 let stats = slash_line.slash_line();
                 season_game = 1;
-                offset = career_offset.get(player).copied().unwrap_or(0);
+                offset = career_offset.get(player.as_str()).copied().unwrap_or(0);
                 gl.season_game = season_game;
                 gl.career_game = offset + season_game;
                 gl.avg = stats.0;
                 gl.obp = stats.1;
                 gl.slg = stats.2;
             }
-            last_game = gl.game_id.as_str();
+            last_game = &gl.game_id;
         }
         gamelogs
     }
 
     fn order_fielding_gamelogs(mut gamelogs: Vec<player::FieldingGamelog>, career_offset: &mut HashMap<String, u16>) -> Vec<player::FieldingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
+        let mut player = &id::RetroPlayerId::default();
+        let mut last_game = &id::RetroGameId::default();
         let mut season_game = 0;
         let mut offset = 0;
         for gl in gamelogs.iter_mut() {
@@ -347,22 +348,22 @@ impl<'a> GameLogLoader<'a> {
             }
             else {
                 if season_game > 0 && player.is_empty() {
-                    career_offset.insert(player.to_owned(), offset + season_game);
+                    career_offset.insert(player.to_string(), offset + season_game);
                 }
-                player = gl.player_id.as_str();
+                player = &gl.player_id;
                 season_game = 1;
-                offset = career_offset.get(player).copied().unwrap_or(0);
+                offset = career_offset.get(player.as_str()).copied().unwrap_or(0);
                 gl.season_game = season_game;
                 gl.career_game = offset + season_game;
             }
-            last_game = gl.game_id.as_str();
+            last_game = &gl.game_id;
         }
         gamelogs
     }
 
     fn order_pitching_gamelogs(mut gamelogs: Vec<player::PitchingGamelog>, career_offset: &mut HashMap<String, u16>, fip_constant: f32) -> Vec<player::PitchingGamelog> {
-        let mut player = "";
-        let mut last_game = "";
+        let mut player = &id::RetroPlayerId::default();
+        let mut last_game = &id::RetroGameId::default();
         let mut pitcher_stats = PitcherStats::new_with_fip(fip_constant);
         let mut season_game = 0;
         let mut offset = 0;
@@ -379,19 +380,19 @@ impl<'a> GameLogLoader<'a> {
             }
             else {
                 if season_game > 0 && player.is_empty() {
-                    career_offset.insert(player.to_owned(), offset + season_game);
+                    career_offset.insert(player.to_string(), offset + season_game);
                 }
-                player = gl.player_id.as_str();
+                player = &gl.player_id;
                 pitcher_stats.clear();
                 pitcher_stats.add_gamelog(gl);
                 season_game = 1;
-                offset = career_offset.get(player).copied().unwrap_or(0);
+                offset = career_offset.get(player.as_str()).copied().unwrap_or(0);
                 gl.season_game = season_game;
                 gl.career_game = offset + season_game;
                 gl.era = pitcher_stats.era();
                 gl.fip = pitcher_stats.fip();
             }
-            last_game = gl.game_id.as_str();
+            last_game = &gl.game_id;
         }
         gamelogs
     }

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use baseball::chadwick::gamelogs;
 
 use crate::database::Sql;
+use crate::id::{RetroGameId, RetroPlayerId, RetroTeamId};
 use crate::search::{CelEval, SearchKey};
 
 use cel::Context;
@@ -28,9 +29,9 @@ pub trait PlayerGamelog {
 #[allow(non_snake_case)]
 #[derive(Default)]
 pub struct BattingGamelog {
-    pub player_id: String,
-    pub game_id: String,
-    pub team_id: String,
+    pub player_id: RetroPlayerId,
+    pub game_id: RetroGameId,
+    pub team_id: RetroTeamId,
     pub career_game: u16,
     pub season_game: u16,
     pub team_game: u16,
@@ -70,9 +71,9 @@ pub struct BattingGamelog {
 #[allow(non_snake_case)]
 #[derive(Default)]
 pub struct FieldingGamelog {
-    pub player_id: String,
-    pub game_id: String,
-    pub team_id: String,
+    pub player_id: RetroPlayerId,
+    pub game_id: RetroGameId,
+    pub team_id: RetroTeamId,
     pub career_game: u16,
     pub season_game: u16,
     pub team_game: u16,
@@ -93,9 +94,9 @@ pub struct FieldingGamelog {
 #[allow(non_snake_case)]
 #[derive(Default)]
 pub struct PitchingGamelog {
-    pub player_id: String,
-    pub game_id: String,
-    pub team_id: String,
+    pub player_id: RetroPlayerId,
+    pub game_id: RetroGameId,
+    pub team_id: RetroTeamId,
     pub career_game: u16,
     pub season_game: u16,
     pub team_game: u16,
@@ -154,11 +155,11 @@ fn map_sql_real_to_f32(value: ValueRef) -> f32 {
 
 
 impl PlayerGamelog for BattingGamelog {
-    fn player_id(&self) -> &str { &self.player_id }
+    fn player_id(&self) -> &str { (&self.player_id).into() }
 
-    fn game_id(&self) -> &str { &self.game_id }
+    fn game_id(&self) -> &str { (&self.game_id).into() }
 
-    fn team_id(&self) -> &str { &self.team_id }
+    fn team_id(&self) -> &str { (&self.team_id).into() }
 
     fn career_game(&self) -> u16 { self.career_game }
 
@@ -211,9 +212,9 @@ impl CelEval for BattingGamelog {
 
 
 impl SearchKey for BattingGamelog {
-    fn id(&self) -> &str { &self.game_id }
+    fn id(&self) -> &str { (&self.game_id).into() }
 
-    fn subject_id(&self) -> &str { &self.player_id }
+    fn subject_id(&self) -> &str { (&self.player_id).into() }
 
     fn order(&self, career: bool) -> u16 {
         if career {
@@ -362,9 +363,9 @@ impl From<gamelogs::BattingGamelog> for BattingGamelog {
         let sf = gamelog.sf.unwrap_or(0) as f32;
         let babip = (h - hr) / (ab - so - hr - sf);
         Self {
-            player_id: gamelog.player_id,
-            game_id: gamelog.game_id,
-            team_id: gamelog.team_id,
+            player_id: gamelog.player_id.into(),
+            game_id: gamelog.game_id.into(),
+            team_id: gamelog.team_id.into(),
             career_game: 0,
             season_game: 0,
             team_game: 0,
@@ -400,11 +401,11 @@ impl From<gamelogs::BattingGamelog> for BattingGamelog {
 
 
 impl PlayerGamelog for FieldingGamelog {
-    fn player_id(&self) -> &str { &self.player_id }
+    fn player_id(&self) -> &str { (&self.player_id).into() }
 
-    fn game_id(&self) -> &str { &self.game_id }
+    fn game_id(&self) -> &str { (&self.game_id).into() }
 
-    fn team_id(&self) -> &str { &self.team_id }
+    fn team_id(&self) -> &str { (&self.team_id).into() }
 
     fn career_game(&self) -> u16 { self.career_game }
 
@@ -443,9 +444,9 @@ impl CelEval for FieldingGamelog {
 
 
 impl SearchKey for FieldingGamelog {
-    fn id(&self) -> &str { &self.game_id }
+    fn id(&self) -> &str { (&self.game_id).into() }
 
-    fn subject_id(&self) -> &str { &self.player_id }
+    fn subject_id(&self) -> &str { (&self.player_id).into() }
 
     fn order(&self, career: bool) -> u16 {
         if career {
@@ -541,9 +542,9 @@ impl Sql for FieldingGamelog {
 impl From<gamelogs::FieldingGamelog> for FieldingGamelog {
     fn from(gamelog: gamelogs::FieldingGamelog) -> Self {
         Self {
-            player_id: gamelog.player_id,
-            game_id: gamelog.game_id,
-            team_id: gamelog.team_id,
+            player_id: gamelog.player_id.into(),
+            game_id: gamelog.game_id.into(),
+            team_id: gamelog.team_id.into(),
             career_game: 0,
             season_game: 0,
             team_game: 0,
@@ -564,11 +565,11 @@ impl From<gamelogs::FieldingGamelog> for FieldingGamelog {
 
 
 impl PlayerGamelog for PitchingGamelog {
-    fn player_id(&self) -> &str { &self.player_id }
+    fn player_id(&self) -> &str { (&self.player_id).into() }
 
-    fn game_id(&self) -> &str { &self.game_id }
+    fn game_id(&self) -> &str { (&self.game_id).into() }
 
-    fn team_id(&self) -> &str { &self.team_id }
+    fn team_id(&self) -> &str { (&self.team_id).into() }
 
     fn career_game(&self) -> u16 { self.career_game }
 
@@ -624,9 +625,9 @@ impl CelEval for PitchingGamelog {
 
 
 impl SearchKey for PitchingGamelog {
-    fn id(&self) -> &str { &self.game_id }
+    fn id(&self) -> &str { (&self.game_id).into() }
 
-    fn subject_id(&self) -> &str { &self.player_id }
+    fn subject_id(&self) -> &str { (&self.player_id).into() }
 
     fn order(&self, career: bool) -> u16 {
         if career {
@@ -770,9 +771,9 @@ impl Sql for PitchingGamelog {
 impl From<gamelogs::PitchingGamelog> for PitchingGamelog {
     fn from(gamelog: gamelogs::PitchingGamelog) -> Self {
         Self {
-            player_id: gamelog.player_id,
-            game_id: gamelog.game_id,
-            team_id: gamelog.team_id,
+            player_id: gamelog.player_id.into(),
+            game_id: gamelog.game_id.into(),
+            team_id: gamelog.team_id.into(),
             career_game: 0,
             season_game: 0,
             team_game: 0,
