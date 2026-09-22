@@ -14,8 +14,8 @@ use baseball::chadwick::gamelogs::{gamelogs_from_daily_stats, PlayerGameLogs};
 use baseball_tools::database::Sql;
 use baseball_tools::games;
 use baseball_tools::player;
-use baseball_tools::id;
 use baseball_tools::internals::Guts;
+use baseball_tools::types::id;
 
 use clap::Parser;
 use csv::ReaderBuilder;

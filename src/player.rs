@@ -5,7 +5,7 @@ use std::sync::Arc;
 use baseball::chadwick::gamelogs;
 
 use crate::database::Sql;
-use crate::id::{RetroGameId, RetroPlayerId, RetroTeamId};
+use crate::types::id::{RetroGameId, RetroPlayerId, RetroTeamId};
 use crate::search::{CelEval, SearchKey};
 
 use cel::Context;
