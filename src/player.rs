@@ -6,6 +6,7 @@ use baseball::chadwick::gamelogs;
 
 use crate::database::Sql;
 use crate::types::id::{RetroGameId, RetroPlayerId, RetroTeamId};
+use crate::types::pos::Position;
 use crate::search::{CelEval, SearchKey};
 
 use cel::Context;
@@ -64,7 +65,7 @@ pub struct BattingGamelog {
     // BABIP covers only this game.
     pub babip: f32,
 
-    pub pos: String,
+    pub pos: Position,
 }
 
 
@@ -198,7 +199,10 @@ impl CelEval for BattingGamelog {
                 "slg" => context.add_variable("slg", self.slg)?,
                 "woba" => context.add_variable("woba", self.woba)?,
                 "babip" => context.add_variable("babip", self.babip)?,
-                "pos" => context.add_variable("pos", self.pos.clone())?,
+                "pos" => {
+                    let s: String = self.pos.into();
+                    context.add_variable("pos", s)?;
+                },
                 _ => {
                     let err = cel::ExecutionError::UndeclaredReference(Arc::new(format!("{}", *name)));
                     return Err(Box::new(err));
@@ -394,7 +398,7 @@ impl From<gamelogs::BattingGamelog> for BattingGamelog {
             slg: 0.0,
             woba: 0.0,
             babip,
-            pos: gamelog.pos,
+            pos: gamelog.pos.into(),
         }
     }
 }
